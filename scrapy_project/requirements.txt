@@ -1,0 +1,80 @@
+# Ransomware Intelligence Pipeline — Python dependencies (pinned)
+# =================================================================
+# Versions pinned to match production container (verified 2026-03-08).
+# Dependabot monitors this file and opens PRs when updates are available.
+#
+# Install all dependencies with:
+#   pip install -r requirements.txt
+#
+# After installation, install the Playwright browser engine:
+#   playwright install chromium
+#
+# Recommended: use a virtual environment
+#   python -m venv venv
+#   source venv/bin/activate   # Linux / macOS
+#   venv\Scripts\activate      # Windows
+
+# ── Core scraping framework ──────────────────────────────────────────────────
+# 2.14.2: fix GHSA-cwxj-rr6w-m6w7 (import arbitrario de módulos vía Referrer-Policy).
+scrapy==2.14.2
+
+# ── Playwright integration (JavaScript rendering for anti-bot spiders) ───────
+scrapy-playwright==0.0.46
+playwright==1.58.0
+
+# ── Web framework (Flask control panel) ──────────────────────────────────────
+flask==3.1.3
+jinja2==3.1.6
+
+# ── HTML/XML parsing ────────────────────────────────────────────────────────
+# 6.1.0: fix GHSA-vfmq-68hx-4jfw (XXE en iterparse/ETCompatXMLParser sobre ficheros
+# locales). Extra [html_clean]: declara lxml_html_clean (Cleaner usado en 4 spiders),
+# antes entraba de rebote por readability-lxml (CAL-044).
+lxml[html_clean]==6.1.0
+parsel==1.11.0
+
+# ── Date parsing ─────────────────────────────────────────────────────────────
+python-dateutil==2.9.0.post0
+
+# ── Main-content extraction (removes ads, sidebars, navigation noise) ────────
+readability-lxml==0.8.4.1
+
+# ── Domain extraction ────────────────────────────────────────────────────────
+tldextract==5.3.1
+
+# ── HTTP library ─────────────────────────────────────────────────────────────
+requests==2.33.0  # GHSA-gc5v-m9x4-r6x2 (temp file en extract_zipped_paths)
+
+# ── Async networking (Scrapy dependency) ─────────────────────────────────────
+# 25.5.0 es el MÁXIMO que permite scrapy 2.14.2 (exige twisted<=25.5.0). El fix del
+# DoS GHSA-grgv-6hw6-v9g4 (twisted.names, punteros DNS) está en 26.4.0 pero exigiría
+# subir scrapy a 2.15.x. Exposición práctica baja: el proyecto NO corre servidor DNS.
+twisted==25.5.0
+
+# ── SSL/TLS ──────────────────────────────────────────────────────────────────
+cryptography==46.0.7  # GHSA-p423-j2cm-9vmq (buffer overflow con buffers no contiguos)
+
+# ── Optional: Cloudflare bypass ──────────────────────────────────────────────
+# Uncomment if you hit Cloudflare-protected pages
+# cloudscraper>=1.2.71
+
+# ── Optional: proxy support ──────────────────────────────────────────────────
+# Uncomment if routing traffic through SOCKS/HTTP proxies
+# requests[socks]>=2.31.0
+# pysocks>=1.7.1
+
+# ── Job scheduling (preprocess trigger post-scraping + periodic) ──────────────
+APScheduler==3.10.4
+
+# ── Config loading (.env) ─────────────────────────────────────────────────────
+# En el contenedor las vars vienen del env_file de docker-compose; quien importa
+# python-dotenv es judge_v2.py, que corre en el HOST (judge_core.py NO lo usa). Se
+# mantiene pineado aquí para que Dependabot lo siga. 1.2.2: fix GHSA-mf9w-mj56-hr94
+# (symlink following en set_key); unifica con pc/requirements.txt (CAL-042).
+python-dotenv==1.2.2
+
+# NOTA: numpy/scipy/krippendorff/matplotlib NO se instalan en el contenedor.
+# Esos paquetes los usan los scripts de análisis (evaluation_f1.py,
+# krippendorff_segmented.py, longitudinal_figures.py, json_adherence.py) que se
+# ejecutan SIEMPRE en el host desde el venv `.venv-analysis`, NUNCA dentro del
+# contenedor. Ver `requirements-analysis.txt` en la raíz del proyecto.

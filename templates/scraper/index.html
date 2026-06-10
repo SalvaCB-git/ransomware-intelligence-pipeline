@@ -1,0 +1,507 @@
+{% extends "base.html" %}
+{% block title %}Scraper · Ransomware Intelligence Pipeline{% endblock %}
+
+{% block content %}
+
+<section class="mb-8 flex flex-wrap items-end gap-4">
+  <div>
+    <div class="flex items-baseline gap-3 mb-1">
+      <span class="text-xs uppercase tracking-[0.2em] text-cyan-300/80 font-semibold">Operación</span>
+    </div>
+    <h1 class="text-3xl font-semibold text-white">Panel del scraper</h1>
+    <p class="mt-2 text-slate-400 max-w-2xl">
+      Lanzamiento manual y monitorización de los spiders de threat intelligence.
+      {% if state.running %}
+        <span class="text-emerald-300 font-medium">Job en curso</span>: {{ state.current_spider }}
+        ({{ state.current_index }}/{{ state.total }}).
+      {% else %}
+        Sin job activo.
+      {% endif %}
+    </p>
+  </div>
+  <div class="ml-auto flex items-center gap-2 text-xs">
+    {% if state.running %}
+      <span class="px-3 py-1.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 font-medium tracking-wide">
+        <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
+        CORRIENDO
+      </span>
+    {% else %}
+      <span class="px-3 py-1.5 rounded-md bg-ink-700/60 text-slate-300 border border-ink-600 font-medium tracking-wide">
+        <span class="inline-block w-2 h-2 rounded-full bg-slate-500 mr-1.5"></span>
+        LISTO
+      </span>
+    {% endif %}
+  </div>
+</section>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+  {# ── Control: chips + run/stop ── #}
+  <section class="lg:col-span-3 rounded-2xl border border-ink-700 bg-ink-800/60 p-5">
+    <header class="flex items-center gap-2 text-cyan-300/80 text-xs uppercase tracking-wider font-semibold mb-4">
+      <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4l10 6-10 6V4z"/></svg>
+      Control · selecciona spiders y lanza
+    </header>
+
+    <div class="mb-4">
+      <div class="text-[11px] uppercase tracking-[0.18em] text-slate-500 mb-2">Spiders disponibles · click para seleccionar</div>
+      <div class="flex flex-wrap gap-2" id="chips">
+        {% for spider in spiders %}
+          {% set is_running = (spider == state.current_spider) %}
+          {% set is_queued = (spider in state.queue) %}
+          {% set is_blocked = spider in blocked_spiders %}
+          <button type="button"
+                  data-spider="{{ spider }}"
+                  data-blocked="{{ '1' if is_blocked else '0' }}"
+                  onclick="toggleSpider('{{ spider }}')"
+                  class="chip font-mono text-[11px] px-3 py-1.5 rounded-md border transition select-none
+                         {% if is_running %}border-emerald-400 text-emerald-300 bg-emerald-500/10 chip-active{% elif is_queued %}border-cyan-400 text-cyan-300 bg-cyan-500/10 chip-selected{% elif is_blocked %}border-ink-600 text-slate-600 cursor-not-allowed opacity-40 chip-blocked{% else %}border-ink-600 text-slate-400 hover:border-cyan-400 hover:text-cyan-300{% endif %}">
+            {{ spider }}
+          </button>
+        {% endfor %}
+      </div>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <button onclick="selectAll()"  class="text-[11px] font-mono uppercase tracking-wider px-2.5 py-1 rounded border border-ink-600 text-slate-300 hover:border-cyan-400 hover:text-cyan-300 transition">Seleccionar todo</button>
+        <button onclick="selectNone()" class="text-[11px] font-mono uppercase tracking-wider px-2.5 py-1 rounded border border-ink-600 text-slate-300 hover:border-cyan-400 hover:text-cyan-300 transition">Deseleccionar</button>
+      </div>
+    </div>
+
+    {% if state.running %}
+      <div class="text-xs text-slate-400 mb-3 font-mono">
+        Corriendo: <span class="text-cyan-300">{{ state.current_spider }}</span>
+        ({{ state.current_index }}/{{ state.total }})
+        {% if state.items_current > 0 %} · <span class="text-cyan-300">{{ state.items_current }} artículos hasta ahora</span>{% endif %}
+      </div>
+      <div class="h-1.5 bg-ink-700 rounded-full overflow-hidden mb-4">
+        <div class="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all duration-500"
+             style="width: {{ ((state.current_index-1) / state.total * 100)|int if state.total > 0 else 0 }}%"></div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button disabled class="text-xs font-mono uppercase tracking-wider px-3.5 py-2 rounded-md bg-emerald-500/10 border border-emerald-400/30 text-emerald-300/70 cursor-not-allowed">
+          ⟳ Corriendo en background
+        </button>
+        <button onclick="stopJob()" class="text-xs font-mono uppercase tracking-wider px-3.5 py-2 rounded-md bg-rose-500/15 border border-rose-400/40 text-rose-200 hover:bg-rose-500/25 transition">
+          ⏹ Stop
+        </button>
+        {% if state.current_log_file %}
+          <a href="/log/{{ state.current_log_file }}" target="_blank"
+             class="text-xs font-mono uppercase tracking-wider px-3.5 py-2 rounded-md border border-ink-600 text-slate-200 hover:border-cyan-400 hover:text-cyan-300 transition">
+            📋 Ver log en vivo
+          </a>
+        {% endif %}
+      </div>
+      <p class="text-[11px] text-slate-500 mt-2 font-mono">↳ Puedes cerrar el navegador, el proceso sigue en el servidor</p>
+    {% else %}
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="btn-launch" onclick="launchSelected()"
+                class="text-xs font-mono uppercase tracking-wider px-4 py-2 rounded-md bg-cyan-500 text-ink-900 font-semibold hover:bg-cyan-400 transition">
+          ▶ Run selected
+        </button>
+        <button onclick="launchAll()"
+                class="text-xs font-mono uppercase tracking-wider px-4 py-2 rounded-md border border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/15 transition">
+          ▶ Run all
+        </button>
+      </div>
+      {% if state.finished_at %}
+        <p class="text-[11px] text-slate-500 mt-3 font-mono">Último run completado: {{ state.finished_at[:16].replace('T',' ') }}</p>
+      {% endif %}
+    {% endif %}
+  </section>
+
+  {# ── Log en tiempo real ── #}
+  <section class="lg:col-span-2 rounded-2xl border border-ink-700 bg-ink-800/60 p-5">
+    <header class="flex items-center gap-2 text-cyan-300/80 text-xs uppercase tracking-wider font-semibold mb-4">
+      <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L7.586 10 5.293 7.707a1 1 0 010-1.414zM11 12a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/></svg>
+      Log en tiempo real
+    </header>
+    <div id="log-box" class="bg-black/40 border border-ink-700 rounded-md p-3 max-h-72 overflow-y-auto font-mono text-[11px] leading-relaxed text-slate-400 space-y-0.5">
+      {% if state.log %}
+        {% for line in state.log[-50:] %}
+          <div class="{% if '✓' in line %}text-emerald-300{% elif '✗' in line %}text-rose-300{% elif '▶' in line %}text-cyan-300{% endif %}">{{ line }}</div>
+        {% endfor %}
+      {% else %}
+        <div class="text-slate-500">Sin actividad todavía — pulsa RUN para empezar.</div>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ── Subir spider ── #}
+  <section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-5">
+    <header class="flex items-center gap-2 text-cyan-300/80 text-xs uppercase tracking-wider font-semibold mb-4">
+      <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      Añadir / actualizar spider
+    </header>
+    <div onclick="document.getElementById('file-input').click()"
+         class="border border-dashed border-ink-600 rounded-md py-6 px-4 text-center font-mono text-[11px] text-slate-500 cursor-pointer hover:border-cyan-400 hover:text-cyan-300 transition">
+      Arrastra un .py aquí o haz click
+    </div>
+    <input type="file" id="file-input" accept=".py" class="hidden" onchange="uploadSpider(this)">
+    <div id="upload-status" class="text-[11px] font-mono text-slate-400 mt-3"></div>
+  </section>
+
+  {# ── Historial por fuente ── #}
+  <section class="lg:col-span-2 rounded-2xl border border-ink-700 bg-ink-800/60 p-5">
+    <header class="flex items-center gap-2 text-cyan-300/80 text-xs uppercase tracking-wider font-semibold mb-4">
+      <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+      Historial por fuente
+    </header>
+    {% set max_arts = namespace(val=1) %}
+    {% for spider in spiders %}
+      {% if history.get(spider, {}).get('total_articles', 0) > max_arts.val %}
+        {% set max_arts.val = history[spider]['total_articles'] %}
+      {% endif %}
+    {% endfor %}
+    <div class="overflow-x-auto max-h-80 overflow-y-auto">
+      <table class="w-full text-[12px]">
+        <thead>
+          <tr class="text-[10px] uppercase tracking-[0.16em] text-slate-500 border-b border-ink-700">
+            <th class="text-left py-2 pr-3 font-medium">Spider</th>
+            <th class="text-left py-2 pr-3 font-medium">Último run</th>
+            <th class="text-left py-2 pr-3 font-medium">Artículos</th>
+            <th class="text-left py-2 pr-3 font-medium">Progreso</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-ink-700/50">
+        {% for spider in spiders %}
+          {% set h = history.get(spider, {}) %}
+          <tr class="hover:bg-ink-700/30">
+            <td class="py-2 pr-3 font-mono text-[11px] text-slate-200">{{ spider }}</td>
+            <td class="py-2 pr-3">
+              {% if h.get('last_run') %}
+                <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-400/20">{{ h.last_run[:10] }}</span>
+              {% else %}
+                <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-ink-700/50 text-slate-500 border border-ink-600">nunca</span>
+              {% endif %}
+            </td>
+            <td class="py-2 pr-3">
+              {% if h.get('total_articles', 0) > 0 %}
+                <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-400/20">{{ h.total_articles }}</span>
+              {% else %}
+                <span class="text-slate-500 text-[11px]">—</span>
+              {% endif %}
+            </td>
+            <td class="py-2 pr-3 w-32">
+              <div class="h-1.5 bg-ink-700 rounded-full overflow-hidden">
+                <div class="h-full bg-cyan-400/80" style="width:{{ ((h.get('total_articles',0) / max_arts.val) * 100)|int }}%"></div>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {# ── Preprocess card ── #}
+  <section class="lg:col-span-3 rounded-2xl border border-ink-700 bg-ink-800/60 p-5">
+    <header class="flex items-center gap-2 text-violet-300/80 text-xs uppercase tracking-wider font-semibold mb-4">
+      <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+      Preprocesado · preprocess.py
+    </header>
+    <div class="flex flex-wrap items-center gap-x-8 gap-y-3">
+      <div>
+        <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-1">Estado</div>
+        {% if state.preprocess_running %}
+          <span class="font-mono text-[11px] px-2 py-1 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-400/30 animate-pulse">⟳ Corriendo ({{ state.preprocess_triggered_by }})</span>
+        {% elif state.preprocess_last_status == 'ok' %}
+          <span class="font-mono text-[11px] px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-400/30">✓ OK</span>
+        {% elif state.preprocess_last_status == 'error' %}
+          <span class="font-mono text-[11px] px-2 py-1 rounded bg-rose-500/10 text-rose-300 border border-rose-400/30">✗ Error</span>
+        {% else %}
+          <span class="font-mono text-[11px] px-2 py-1 rounded bg-ink-700/50 text-slate-400 border border-ink-600">—</span>
+        {% endif %}
+      </div>
+      <div>
+        <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-1">Último run</div>
+        <span class="font-mono text-[12px] text-slate-200">
+          {% if state.preprocess_last_run %}{{ state.preprocess_last_run[:16].replace('T',' ') }} UTC{% else %}—{% endif %}
+        </span>
+      </div>
+      <button id="btn-preprocess" onclick="triggerPreprocess()"
+              class="ml-auto text-xs font-mono uppercase tracking-wider px-3.5 py-2 rounded-md border border-violet-400/40 text-violet-200 hover:bg-violet-500/15 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              {% if state.preprocess_running %}disabled{% endif %}>
+        ⚙ Preprocess now
+      </button>
+    </div>
+  </section>
+
+  {# ── Outputs descargables ── #}
+  <section class="lg:col-span-3 rounded-2xl border border-ink-700 bg-ink-800/60 p-5">
+    <header class="flex items-center justify-between gap-2 mb-4">
+      <div class="flex items-center gap-2 text-cyan-300/80 text-xs uppercase tracking-wider font-semibold">
+        <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+        Outputs descargables
+      </div>
+      <span id="outputs-count" class="text-[11px] font-mono text-slate-500">{{ files|length }} ficheros</span>
+    </header>
+
+    {% if files %}
+      {# ── Filtros ── #}
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <div class="relative flex-1 min-w-[220px]">
+          <svg class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+          <input type="search" id="outputs-search" autocomplete="off" placeholder="Buscar por nombre…"
+                 class="w-full pl-8 pr-3 py-1.5 text-[12px] bg-ink-900 border border-ink-600 rounded-md text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/40 outline-none transition">
+        </div>
+        <select id="outputs-spider"
+                class="text-[12px] bg-ink-900 border border-ink-600 rounded-md py-1.5 pl-3 pr-8 text-slate-200 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/40 outline-none transition">
+          <option value="">Todos los spiders</option>
+        </select>
+        <button id="outputs-reset" type="button"
+                class="text-[11px] font-mono uppercase tracking-wider px-3 py-1.5 rounded-md border border-ink-600 text-slate-400 hover:border-cyan-400 hover:text-cyan-300 transition">
+          Reset
+        </button>
+      </div>
+
+      <div class="overflow-x-auto max-h-96 overflow-y-auto">
+        <table class="w-full text-[12px]" id="outputs-table">
+          <thead class="sticky top-0 bg-ink-800/95 backdrop-blur z-10">
+            <tr class="text-[10px] uppercase tracking-[0.16em] text-slate-500 border-b border-ink-700">
+              <th data-sort="name" class="sortable text-left py-2 pr-3 font-medium cursor-pointer hover:text-cyan-300 transition">Archivo <span class="sort-ind text-slate-600">↕</span></th>
+              <th data-sort="rows" data-numeric="1" class="sortable text-left py-2 pr-3 font-medium cursor-pointer hover:text-cyan-300 transition">Artículos <span class="sort-ind text-slate-600">↕</span></th>
+              <th data-sort="size" data-numeric="1" class="sortable text-left py-2 pr-3 font-medium cursor-pointer hover:text-cyan-300 transition">Tamaño <span class="sort-ind text-slate-600">↕</span></th>
+              <th data-sort="mtime" data-numeric="1" class="sortable text-left py-2 pr-3 font-medium cursor-pointer hover:text-cyan-300 transition">Fecha <span class="sort-ind text-slate-600">↕</span></th>
+              <th class="py-2 pr-3"></th>
+              <th class="py-2 pr-3"></th>
+            </tr>
+          </thead>
+          <tbody id="outputs-tbody" class="divide-y divide-ink-700/50">
+            {% for f in files %}
+            <tr class="hover:bg-ink-700/30"
+                data-name="{{ f.name }}"
+                data-spider="{{ f.spider }}"
+                data-rows="{{ f.rows }}"
+                data-size="{{ f.size_bytes }}"
+                data-mtime="{{ f.mtime }}">
+              <td class="py-2 pr-3 font-mono text-[11px] text-slate-200">{{ f.name }}</td>
+              <td class="py-2 pr-3"><span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-400/20">{{ f.rows }}</span></td>
+              <td class="py-2 pr-3"><span class="font-mono text-[10px] text-slate-400">{{ f.size }}</span></td>
+              <td class="py-2 pr-3 font-mono text-[10px] text-slate-500">{{ f.modified }}</td>
+              <td class="py-2 pr-3">
+                <a href="/download/{{ f.name }}" class="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded border border-ink-600 text-cyan-300 hover:border-cyan-400 transition">↓ CSV</a>
+              </td>
+              <td class="py-2 pr-3">
+                {% if f.log %}
+                  <a href="/log/{{ f.log }}" target="_blank" class="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded border border-ink-600 text-cyan-300 hover:border-cyan-400 transition">📋 Log</a>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+            <tr id="outputs-empty" class="hidden">
+              <td colspan="6" class="py-8 text-center font-mono text-[11px] text-slate-500">
+                Sin resultados con esos filtros.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center py-8 font-mono text-[11px] text-slate-500">Sin outputs todavía — lanza un spider para generar CSVs.</div>
+    {% endif %}
+  </section>
+
+</div>
+
+<div id="toast" class="fixed bottom-6 right-6 hidden z-50 max-w-sm font-mono text-[12px] px-4 py-3 rounded-lg border border-cyan-400/30 bg-ink-800/95 backdrop-blur text-slate-100 shadow-2xl"></div>
+
+<script>
+let selected = new Set({{ state.queue | tojson }});
+
+{% if state.running %}
+document.querySelectorAll('.chip').forEach(c => c.style.pointerEvents = 'none');
+{% endif %}
+
+function toggleSpider(name) {
+  const el = document.querySelector(`.chip[data-spider="${name}"]`);
+  if (el && el.dataset.blocked === '1') return;
+  if (selected.has(name)) selected.delete(name);
+  else selected.add(name);
+  updateChips();
+}
+
+function selectAll() {
+  document.querySelectorAll('.chip').forEach(c => {
+    if (c.dataset.blocked !== '1') selected.add(c.dataset.spider);
+  });
+  updateChips();
+}
+
+function selectNone() { selected.clear(); updateChips(); }
+
+function updateChips() {
+  document.querySelectorAll('.chip').forEach(c => {
+    const name = c.dataset.spider;
+    if (c.dataset.blocked === '1') return;
+    const isSel = selected.has(name);
+    // Tailwind classes para selected vs default
+    c.classList.toggle('chip-selected', isSel);
+    if (isSel) {
+      c.classList.add('border-cyan-400', 'text-cyan-300', 'bg-cyan-500/10');
+      c.classList.remove('border-ink-600', 'text-slate-400');
+    } else {
+      c.classList.remove('border-cyan-400', 'text-cyan-300', 'bg-cyan-500/10');
+      c.classList.add('border-ink-600', 'text-slate-400');
+    }
+  });
+}
+
+async function launchSelected() {
+  if (selected.size === 0) { showToast('⚠ Selecciona al menos un spider'); return; }
+  await launch([...selected]);
+}
+
+async function launchAll() {
+  const all = [...document.querySelectorAll('.chip')]
+                .filter(c => c.dataset.blocked !== '1')
+                .map(c => c.dataset.spider);
+  await launch(all);
+}
+
+async function launch(queue) {
+  const fd = new FormData();
+  queue.forEach(s => fd.append('spiders', s));
+  const r = await fetch('/run', { method: 'POST', body: fd });
+  if (r.ok) location.reload();
+  else showToast('✗ Error al lanzar');
+}
+
+async function uploadSpider(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const status = document.getElementById('upload-status');
+  status.textContent = 'Subiendo...';
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const r = await fetch('/upload_spider', { method: 'POST', body: fd });
+    const data = await r.json();
+    if (data.status === 'ok') {
+      showToast(`✓ Spider subido: ${data.name}`);
+      status.textContent = `✓ ${data.name} instalado correctamente`;
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      showToast(`✗ ${data.message}`);
+      status.textContent = `✗ Error: ${data.message}`;
+    }
+  } catch(e) {
+    showToast('✗ Error de red');
+    status.textContent = '✗ Error de red';
+  }
+  input.value = '';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.add('hidden'), 4000);
+}
+
+async function stopJob() {
+  if (!confirm('¿Detener el scraping en curso?')) return;
+  await fetch('/stop', { method: 'POST' });
+  showToast('⏹ Stop solicitado — el spider actual terminará y se parará la cola');
+}
+
+async function triggerPreprocess() {
+  const btn = document.getElementById('btn-preprocess');
+  if (btn) btn.disabled = true;
+  const r = await fetch('/trigger/preprocess', { method: 'POST' });
+  const data = await r.json();
+  if (data.status === 'started') {
+    showToast('⚙ Preprocess iniciado — revisa el log en unos segundos');
+  } else if (data.status === 'already_running') {
+    showToast('⚙ El preprocess ya está corriendo');
+  } else {
+    showToast('✗ Error al lanzar preprocess');
+    if (btn) btn.disabled = false;
+  }
+}
+
+{% if state.running %}
+setTimeout(() => location.reload(), 8000);
+{% endif %}
+
+const lb = document.getElementById('log-box');
+if (lb) lb.scrollTop = lb.scrollHeight;
+
+// ── Outputs: filtros + sort en cliente ───────────────────────────────────────
+(function () {
+  const tbody = document.getElementById('outputs-tbody');
+  if (!tbody) return;
+  const search = document.getElementById('outputs-search');
+  const spiderSel = document.getElementById('outputs-spider');
+  const resetBtn = document.getElementById('outputs-reset');
+  const count = document.getElementById('outputs-count');
+  const emptyRow = document.getElementById('outputs-empty');
+  const rows = [...tbody.querySelectorAll('tr[data-name]')];
+  const total = rows.length;
+
+  // Poblar dropdown de spiders únicos
+  const spiders = [...new Set(rows.map(r => r.dataset.spider).filter(Boolean))].sort();
+  for (const sp of spiders) {
+    const opt = document.createElement('option');
+    opt.value = sp;
+    opt.textContent = sp;
+    spiderSel.appendChild(opt);
+  }
+
+  function applyFilters() {
+    const q = search.value.trim().toLowerCase();
+    const sp = spiderSel.value;
+    let visible = 0;
+    for (const r of rows) {
+      const matchQ = !q || r.dataset.name.toLowerCase().includes(q);
+      const matchSp = !sp || r.dataset.spider === sp;
+      const show = matchQ && matchSp;
+      r.style.display = show ? '' : 'none';
+      if (show) visible++;
+    }
+    if (emptyRow) emptyRow.classList.toggle('hidden', visible !== 0);
+    count.textContent = (visible === total)
+      ? `${total} ficheros`
+      : `${visible} / ${total} ficheros`;
+  }
+
+  search.addEventListener('input', applyFilters);
+  spiderSel.addEventListener('change', applyFilters);
+  resetBtn.addEventListener('click', () => {
+    search.value = '';
+    spiderSel.value = '';
+    applyFilters();
+  });
+
+  // Sort por columna (clic en header)
+  let sortKey = null, sortDir = 1;
+  document.querySelectorAll('#outputs-table th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      const numeric = th.dataset.numeric === '1';
+      sortDir = (sortKey === key) ? -sortDir : 1;
+      sortKey = key;
+
+      // Actualizar indicadores
+      document.querySelectorAll('#outputs-table th.sortable .sort-ind').forEach(s => {
+        s.textContent = '↕';
+        s.className = 'sort-ind text-slate-600';
+      });
+      const ind = th.querySelector('.sort-ind');
+      ind.textContent = sortDir === 1 ? '↑' : '↓';
+      ind.className = 'sort-ind text-cyan-300';
+
+      const sorted = [...rows].sort((a, b) => {
+        const va = numeric ? Number(a.dataset[key]) : a.dataset[key].toLowerCase();
+        const vb = numeric ? Number(b.dataset[key]) : b.dataset[key].toLowerCase();
+        if (va < vb) return -sortDir;
+        if (va > vb) return sortDir;
+        return 0;
+      });
+      // Re-insertar en orden; emptyRow al final
+      sorted.forEach(r => tbody.appendChild(r));
+      if (emptyRow) tbody.appendChild(emptyRow);
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,22 @@
+networks:
+  monitor_net:
+    external: true
+services:
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: scraper
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./outputs:/app/outputs
+      - ./data:/app/data
+      - ./scrapy_project/bcddg/bcddg/spiders:/app/scrapy_project/bcddg/bcddg/spiders
+      - ./templates:/app/templates:ro
+      - ./static:/app/static:ro
+    ports:
+      - "127.0.0.1:7000:7000"
+    networks:
+      - monitor_net

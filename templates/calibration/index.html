@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calibración Humana — TTP Pipeline</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@500;700&display=swap');
+:root {
+  --bg:#0a0c0f;--surface:#0f1318;--border:#1e2530;
+  --accent:#e63946;--blue:#00b4d8;--green:#2ecc71;--yellow:#f39c12;
+  --muted:#5a7080;--text:#c8d6e5;
+  --mono:'Share Tech Mono',monospace;--sans:'Rajdhani',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;}
+a{color:var(--blue);text-decoration:none;}a:hover{text-decoration:underline;}
+header{background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 1rem;height:52px;display:flex;align-items:center;gap:.75rem;
+  position:sticky;top:0;z-index:100;}
+.logo{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:2px;}
+.logo span{color:var(--blue);}
+.pbar-wrap{background:var(--surface);border-bottom:1px solid var(--border);
+  padding:.5rem 1rem;position:sticky;top:52px;z-index:99;
+  display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;}
+.ptrack{flex:1;background:var(--border);height:6px;border-radius:3px;min-width:80px;}
+.pfill{background:var(--blue);height:100%;border-radius:3px;transition:width .5s;}
+.ptext{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;}
+.agr-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:2px;
+  background:rgba(0,180,216,.1);border:1px solid rgba(0,180,216,.3);color:var(--blue);}
+.container{max-width:700px;margin:0 auto;padding:1.25rem 1rem 4rem;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:4px;margin-bottom:1rem;}
+.card-hdr{padding:.6rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;}
+.card-title{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--blue);}
+.card-body{padding:1rem;}
+.meta-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem;}
+.badge{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:2px;}
+.b-src{background:rgba(0,180,216,.1);border:1px solid rgba(0,180,216,.3);color:var(--blue);}
+.b-ctrl{background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.3);color:var(--yellow);}
+.b-strat{background:rgba(46,204,113,.1);border:1px solid rgba(46,204,113,.3);color:var(--green);}
+.technique-id{font-family:var(--mono);font-size:17px;color:var(--text);letter-spacing:1px;}
+.mitre-link{font-family:var(--mono);font-size:10px;color:var(--blue);text-decoration:none;margin-left:.5rem;}
+.mitre-link:hover{text-decoration:underline;}
+.quote-box{background:#06080a;border:1px solid var(--border);border-left:3px solid var(--blue);
+  padding:1rem;border-radius:2px;margin:1rem 0;font-family:var(--mono);font-size:12px;
+  line-height:1.8;color:#c8d6e5;max-height:220px;overflow-y:auto;}
+.quote-box.empty{color:var(--muted);font-style:italic;}
+.quote-box::-webkit-scrollbar,.art-body::-webkit-scrollbar,.rsn-box::-webkit-scrollbar{width:3px;}
+.quote-box::-webkit-scrollbar-thumb,.art-body::-webkit-scrollbar-thumb,.rsn-box::-webkit-scrollbar-thumb{background:var(--border);}
+.btn-art{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;
+  background:transparent;border:1px solid var(--muted);color:var(--muted);
+  padding:.4rem 1rem;border-radius:2px;cursor:pointer;width:100%;margin-bottom:.75rem;transition:all .2s;}
+.btn-art:hover{border-color:var(--blue);color:var(--blue);}
+.art-body{background:#06080a;border:1px solid var(--border);padding:1rem;font-size:12px;
+  line-height:1.7;color:#8a9bb0;border-radius:2px;margin-bottom:.75rem;
+  max-height:320px;overflow-y:auto;display:none;white-space:pre-wrap;word-break:break-word;}
+.v-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:.75rem;}
+.v-buttons{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;}
+.btn-v{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;
+  padding:1rem .4rem;border:2px solid;border-radius:4px;cursor:pointer;transition:all .15s;
+  display:flex;flex-direction:column;align-items:center;gap:.3rem;min-height:72px;}
+.btn-v:active{transform:scale(.95);}
+.btn-v:disabled{opacity:.4;cursor:not-allowed;}
+.icon{font-size:1.5rem;}.sc{font-size:8px;opacity:.5;}
+.btn-acc{border-color:var(--green);color:var(--green);background:rgba(46,204,113,.05);}
+.btn-acc:not(:disabled):hover{background:rgba(46,204,113,.15);}
+.btn-rej{border-color:var(--accent);color:var(--accent);background:rgba(230,57,70,.05);}
+.btn-rej:not(:disabled):hover{background:rgba(230,57,70,.15);}
+.btn-unc{border-color:var(--yellow);color:var(--yellow);background:rgba(243,156,18,.05);}
+.btn-unc:not(:disabled):hover{background:rgba(243,156,18,.15);}
+.result-row{display:flex;gap:1.5rem;margin-bottom:1rem;flex-wrap:wrap;}
+.result-item{display:flex;flex-direction:column;gap:.25rem;}
+.rl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;}
+.rv{font-family:var(--mono);font-size:14px;}
+.c-acc{color:var(--green);}.c-rej{color:var(--accent);}.c-unc{color:var(--yellow);}.c-none{color:var(--muted);}
+.banner{padding:.75rem 1rem;border-radius:4px;margin-bottom:1rem;font-family:var(--mono);font-size:11px;letter-spacing:1px;}
+.b-agree{background:rgba(46,204,113,.1);border:1px solid rgba(46,204,113,.3);color:var(--green);}
+.b-disagree{background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.3);color:var(--yellow);}
+.b-ctrl2{background:rgba(0,180,216,.1);border:1px solid rgba(0,180,216,.3);color:var(--blue);}
+.rsn-label{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:.4rem;}
+.rsn-box{background:#06080a;border:1px solid var(--border);border-left:3px solid var(--muted);
+  padding:.75rem 1rem;border-radius:2px;margin-bottom:1rem;font-size:12px;line-height:1.7;
+  color:#8a9bb0;max-height:180px;overflow-y:auto;}
+.err-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:.5rem;}
+.err-btns{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.75rem;}
+.btn-err{font-family:var(--mono);font-size:10px;padding:.4rem .8rem;
+  border:1px solid var(--border);border-radius:2px;cursor:pointer;
+  background:var(--bg);color:var(--muted);transition:all .15s;}
+.btn-err:hover,.btn-err.active{border-color:var(--yellow);color:var(--yellow);background:rgba(243,156,18,.08);}
+.notes{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);
+  font-family:var(--mono);font-size:11px;padding:.5rem .75rem;border-radius:2px;
+  resize:vertical;min-height:60px;margin-bottom:.75rem;}
+.notes:focus{outline:none;border-color:var(--blue);}
+.notes::placeholder{color:var(--muted);}
+.btn-primary{font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;
+  padding:.9rem 1.5rem;border-radius:4px;cursor:pointer;border:none;
+  background:var(--blue);color:var(--bg);width:100%;font-weight:bold;
+  transition:all .15s;min-height:52px;}
+.btn-primary:hover:not(:disabled){background:#00c5ef;}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;}
+.spinner{display:flex;align-items:center;justify-content:center;padding:3rem;
+  font-family:var(--mono);font-size:11px;color:var(--muted);gap:.75rem;}
+.spin{animation:spin 1s linear infinite;display:inline-block;}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.done-box{text-align:center;padding:3rem 2rem;font-family:var(--mono);}
+.done-box .big{font-size:3rem;margin-bottom:1rem;}
+.done-box h2{color:var(--green);font-size:1.1rem;letter-spacing:2px;margin-bottom:.75rem;}
+.done-box p{color:var(--muted);font-size:11px;line-height:1.8;}
+code{color:var(--blue);}
+@media(max-width:480px){.sc{display:none;}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">// <span>CALIBRACIÓN</span> HUMANA</div>
+  <a href="/" style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted);">← PANEL</a>
+</header>
+<div class="pbar-wrap" id="pbar-wrap" style="display:none;">
+  <div class="ptrack"><div class="pfill" id="pfill" style="width:0%"></div></div>
+  <span class="ptext" id="ptext">—</span>
+  <span class="agr-badge" id="agr-badge">—</span>
+</div>
+<div class="container"><div id="app"><div class="spinner"><span class="spin">⟳</span> Cargando...</div></div></div>
+
+<script>
+const V = {
+  accept:    {label:'ACEPTAR',    icon:'✅',cls:'btn-acc',cc:'c-acc'},
+  reject:    {label:'RECHAZAR',   icon:'❌',cls:'btn-rej',cc:'c-rej'},
+  uncertain: {label:'INCERT.',    icon:'❓',cls:'btn-unc',cc:'c-unc'},
+};
+const ECODES = [
+  {code:'E1',label:'Abstracción',desc:'LLM acepta mención genérica sin comportamiento consumado'},
+  {code:'E2',label:'Temporal',   desc:'LLM confunde histórico/hipotético con ejecutado'},
+  {code:'E3',label:'Defensivo',  desc:'LLM interpreta recomendación defensiva como TTP atacante'},
+  {code:'E4',label:'Taxonómico', desc:'Táctica/técnica incompatible con el comportamiento'},
+  {code:'E5',label:'Ambiguo',    desc:'Texto genuinamente ambiguo, sin respuesta clara'},
+];
+
+let current = null, selErr = null, artExpanded = false;
+
+function e(id){return document.getElementById(id);}
+function app(){return e('app');}
+
+function esc(s){
+  if(!s)return'';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function cc(v){return V[v]?V[v].cc:'c-none';}
+
+function updateStats(s){
+  if(!s||s.total===0){e('pbar-wrap').style.display='none';return;}
+  e('pbar-wrap').style.display='flex';
+  const pct=(s.done/s.total*100).toFixed(1);
+  e('pfill').style.width=pct+'%';
+  e('ptext').textContent=s.done+'/'+s.total+' · '+pct+'%';
+  e('agr-badge').textContent=s.raw_agreement_pct!=null?'Acuerdo: '+s.raw_agreement_pct.toFixed(1)+'%':'—';
+}
+
+async function api(url,opts){
+  const r=await fetch(url,opts);
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+// ── Phase 1 ────────────────────────────────────────────────────────────────────
+function renderPhase1(item){
+  selErr=null; artExpanded=false;
+  const hasQ=item.quote&&item.quote.trim().length>0;
+  app().innerHTML=`
+  <div class="card">
+    <div class="card-hdr"><span class="card-title">🔬 FASE 1 — EVALUACIÓN CIEGA</span></div>
+    <div class="card-body">
+      <div class="meta-row">
+        <span class="badge b-src">${esc(item.source)}</span>
+        <span class="badge ${item.sample_type==='control'?'b-ctrl':'b-strat'}">
+          ${item.sample_type==='control'?'⚙ CONTROL':'📊 MUESTRA'}
+        </span>
+        <span style="margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--muted);">#${item.id}</span>
+      </div>
+      <div style="margin-bottom:.75rem;">
+        <span class="technique-id">${esc(item.technique_id)}</span>
+        <a href="${esc(item.mitre_url)}" target="_blank" class="mitre-link">↗ MITRE ATT&CK</a>
+      </div>
+      <div class="quote-box ${hasQ?'':'empty'}">${hasQ?esc(item.quote):'(Sin quote — usa el botón para ver el artículo completo)'}</div>
+      <button class="btn-art" id="btn-art" onclick="toggleArt(${item.article_id})">📄 Ver artículo completo [V]</button>
+      <div class="art-body" id="art-body"></div>
+      <div class="v-label">TU VEREDICTO (sin ver el LLM)</div>
+      <div class="v-buttons" id="vbtns">
+        <button class="btn-v btn-acc" onclick="submitV('accept')">
+          <span class="icon">✅</span><span>ACEPTAR</span><span class="sc">[A]</span>
+        </button>
+        <button class="btn-v btn-rej" onclick="submitV('reject')">
+          <span class="icon">❌</span><span>RECHAZAR</span><span class="sc">[R]</span>
+        </button>
+        <button class="btn-v btn-unc" onclick="submitV('uncertain')">
+          <span class="icon">❓</span><span>INCERT.</span><span class="sc">[U]</span>
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function toggleArt(aid){
+  const box=e('art-body'), btn=e('btn-art');
+  if(artExpanded){box.style.display='none';artExpanded=false;btn.textContent='📄 Ver artículo completo [V]';return;}
+  box.style.display='block'; box.textContent='⟳ Cargando...';
+  try{
+    const d=await api('/api/calibration/article/'+aid);
+    box.innerHTML='<div style="font-family:var(--mono);font-size:9px;color:var(--blue);margin-bottom:.5rem;letter-spacing:1px;">'
+      +esc(d.source)+' · '+esc(d.published_utc||'')
+      +' <a href="'+esc(d.url)+'" target="_blank" style="color:var(--muted);margin-left:1rem;">↗ Original</a></div>'
+      +esc(d.body||'');
+    artExpanded=true; btn.textContent='📄 Ocultar artículo [V]';
+  }catch(err){box.textContent='✗ Error: '+err.message;}
+}
+
+async function submitV(verdict){
+  document.querySelectorAll('.btn-v').forEach(b=>b.disabled=true);
+  try{
+    const d=await api('/api/calibration/verdict',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id:current.id,verdict})
+    });
+    updateStats(d.stats);
+    if(d.is_control){renderPhase2Control(verdict);}
+    else{renderPhase2(verdict,d.llm_verdict,d.llm_reasoning,d.agreement);}
+  }catch(err){app().innerHTML+='<div style="color:var(--accent);font-family:var(--mono);font-size:11px;margin-top:1rem;">✗ '+err.message+'</div>';}
+}
+
+// ── Phase 2 ────────────────────────────────────────────────────────────────────
+function renderPhase2Control(hv){
+  app().innerHTML=`
+  <div class="card">
+    <div class="card-hdr"><span class="card-title">✓ CONTROL — GUARDADO</span></div>
+    <div class="card-body">
+      <div class="banner b-ctrl2">⚙ Muestra control (conf=1.0) — tu voto: <span class="${cc(hv)}">${hv.toUpperCase()}</span></div>
+      <button class="btn-primary" onclick="loadNext()">▶ SIGUIENTE →</button>
+    </div>
+  </div>`;
+}
+
+function renderPhase2(hv, lv, reasoning, agree){
+  const hvInfo=V[hv]||{icon:'',label:hv};
+  const lvInfo=V[lv]||{icon:'—',label:lv||'—'};
+  app().innerHTML=`
+  <div class="card">
+    <div class="card-hdr"><span class="card-title">🔍 FASE 2 — RECONCILIACIÓN</span></div>
+    <div class="card-body">
+      <div class="result-row">
+        <div class="result-item">
+          <span class="rl">TU VOTO (CIEGO)</span>
+          <span class="rv ${cc(hv)}">${hvInfo.icon} ${hv.toUpperCase()}</span>
+        </div>
+        <div class="result-item">
+          <span class="rl">VEREDICTO LLM</span>
+          <span class="rv ${cc(lv)}">${lvInfo.icon} ${lv?lv.toUpperCase():'—'}</span>
+        </div>
+      </div>
+      <div class="banner ${agree?'b-agree':'b-disagree'}">
+        ${agree?'✅ ACUERDO — mismo veredicto':'⚠ DESACUERDO — clasifica el tipo de error'}
+      </div>
+      ${reasoning?`<div class="rsn-label">REASONING DEL LLM</div><div class="rsn-box">${esc(reasoning)}</div>`:''}
+      ${agree?`<button class="btn-primary" onclick="loadNext()">▶ SIGUIENTE →</button>`:renderErrorForm()}
+    </div>
+  </div>`;
+}
+
+function renderErrorForm(){
+  return `
+  <div class="err-label">TIPO DE ERROR (obligatorio para guardar)</div>
+  <div class="err-btns" id="errbts">
+    ${ECODES.map(e=>`<button class="btn-err" id="e${e.code}" onclick="selError('${e.code}')" title="${esc(e.desc)}">${e.code} · ${e.label}</button>`).join('')}
+  </div>
+  <textarea class="notes" id="notes" placeholder="Nota opcional sobre el desacuerdo..."></textarea>
+  <button class="btn-primary" id="btn-save" onclick="saveRec()" disabled>💾 GUARDAR Y CONTINUAR</button>`;
+}
+
+function selError(code){
+  selErr=code;
+  document.querySelectorAll('.btn-err').forEach(b=>b.classList.remove('active'));
+  const b=e('e'+code); if(b)b.classList.add('active');
+  const s=e('btn-save'); if(s)s.disabled=false;
+}
+
+async function saveRec(){
+  const notes=e('notes')?e('notes').value.trim():'';
+  const btn=e('btn-save'); if(btn)btn.disabled=true;
+  try{
+    await api('/api/calibration/reconcile',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id:current.id,error_code:selErr,notes:notes||null})
+    });
+    await loadNext();
+  }catch(err){if(btn)btn.disabled=false;alert('Error: '+err.message);}
+}
+
+// ── Load next ──────────────────────────────────────────────────────────────────
+async function loadNext(){
+  app().innerHTML='<div class="spinner"><span class="spin">⟳</span> Cargando siguiente...</div>';
+  try{
+    const d=await api('/api/calibration/next');
+    updateStats(d.stats);
+    if(d.done){renderDone(d.stats);return;}
+    current=d; renderPhase1(d);
+  }catch(err){
+    app().innerHTML='<div class="spinner" style="color:var(--accent);">✗ Error: '+esc(err.message)
+      +'<br><button onclick="loadNext()" style="margin-top:1rem;background:none;border:1px solid var(--accent);color:var(--accent);cursor:pointer;padding:.5rem 1rem;font-family:var(--mono);font-size:11px;border-radius:2px;">Reintentar</button></div>';
+  }
+}
+
+function renderDone(s){
+  app().innerHTML=`
+  <div class="card"><div class="card-body done-box">
+    <div class="big">🎉</div>
+    <h2>CALIBRACIÓN COMPLETADA</h2>
+    <p>${s.done} TTPs anotados · Acuerdo crudo: ${s.raw_agreement_pct!=null?s.raw_agreement_pct.toFixed(1)+'%':'—'}</p>
+    <p style="margin-top:.75rem;">Ejecuta <code>compute_alpha.py</code> en tu PC local para calcular el Krippendorff Alpha.</p>
+    <a href="/" style="display:block;margin-top:1.5rem;font-family:var(--mono);font-size:11px;">← Volver al panel</a>
+  </div></div>`;
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────────────────────────────
+document.addEventListener('keydown',ev=>{
+  if(ev.target.tagName==='TEXTAREA'||ev.target.tagName==='INPUT')return;
+  const k=ev.key.toLowerCase();
+  if(k==='a'){const b=document.querySelector('.btn-acc:not(:disabled)');if(b)submitV('accept');}
+  else if(k==='r'){const b=document.querySelector('.btn-rej:not(:disabled)');if(b)submitV('reject');}
+  else if(k==='u'){const b=document.querySelector('.btn-unc:not(:disabled)');if(b)submitV('uncertain');}
+  else if(k==='v'&&current){toggleArt(current.article_id);}
+  else if(k==='n'||k==='enter'){const b=document.querySelector('.btn-primary:not(:disabled)');if(b&&b.textContent.includes('SIGUIENTE'))b.click();}
+});
+
+loadNext();
+</script>
+</body>
+</html>

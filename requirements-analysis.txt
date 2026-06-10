@@ -1,0 +1,31 @@
+# Analysis scripts — dependencies NOT installed in the Docker container.
+# =====================================================================
+#
+# Estos paquetes los requieren SÓLO los scripts de análisis, que se ejecutan en
+# el host desde el venv `.venv-analysis` (ver "Uso" abajo):
+#
+#   evaluation_f1.py            — bootstrap BCa, MCC, Krippendorff α, TOST, MNAR
+#   krippendorff_segmented.py   — α por segmento (humano/v1/source/sample_type)
+#   longitudinal_figures.py     — generación de figuras matplotlib
+#   json_adherence.py           — métricas de adherencia JSON (no usa scipy/numpy aún,
+#                                 sólo stdlib; se mantiene venv unificado por simplicidad)
+#
+# NO se intentan instalar en el contenedor Docker (Python 3.14 slim ARM64) porque:
+#   1. numpy 2.x necesita compilación con g++ desde fuente en ARM64 cuando no hay
+#      wheels para Python 3.14, lo que rompía `docker compose build`.
+#   2. Los scripts viven en el host. Ejecutarlos en el contenedor no aporta nada
+#      — la BD SQLite se monta como volumen y es accesible desde ambos.
+#
+# Uso:
+#   python3 -m venv .venv-analysis
+#   .venv-analysis/bin/pip install -r requirements-analysis.txt
+#   .venv-analysis/bin/python evaluation_f1.py [--db data/ransomware_intel.db]
+#
+# Rangos compatibles con Python 3.8 (host de análisis). Versiones EXACTAS con las
+# que se generaron las cifras del TFG (pip freeze del venv de análisis):
+#   numpy 1.24.4 · scipy 1.10.1 · krippendorff 0.6.0 · matplotlib 3.7.5
+
+numpy>=1.24,<3
+scipy>=1.10,<2
+krippendorff>=0.6,<1
+matplotlib>=3.7,<4

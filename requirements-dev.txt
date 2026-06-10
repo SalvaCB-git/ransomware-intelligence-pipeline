@@ -1,0 +1,14 @@
+# Dependencias de desarrollo — solo para la suite de tests unitarios del HOST.
+# NUNCA instalar en el contenedor (ver tests/README.md).
+#
+#   python3 -m venv .venv-dev
+#   .venv-dev/bin/pip install -r requirements-dev.txt
+#   .venv-dev/bin/pytest tests/ -v
+#
+# pytest 8.3.x es la última serie compatible con Python 3.8.10 (el intérprete
+# del host); 8.4+ exige 3.9+.
+pytest==8.3.5
+
+# requests es import a nivel de módulo de judge_core.py (lo usa call_gemini).
+# Se necesita solo para que el módulo importe y poder testear lookup_technique.
+requests==2.32.3

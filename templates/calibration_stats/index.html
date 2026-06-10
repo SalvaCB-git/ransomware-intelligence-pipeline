@@ -1,0 +1,531 @@
+{% extends "base.html" %}
+{% block title %}Calibración humana · TFG{% endblock %}
+
+{% block content %}
+
+<section class="mb-10">
+  <div class="flex items-baseline gap-3 mb-2">
+    <span class="text-xs uppercase tracking-[0.2em] text-cyan-300/80 font-semibold">Anotación humana</span>
+    <span class="h-px flex-1 bg-gradient-to-r from-cyan-400/40 to-transparent"></span>
+  </div>
+  <h1 class="text-3xl sm:text-4xl font-semibold leading-tight text-white">
+    Calibración del LLM-as-a-judge contra anotador humano
+  </h1>
+  <p class="mt-3 max-w-3xl text-slate-400">
+    Protocolo de 2 fases (anotación ciega → reconciliación con taxonomía E1-E5) sobre 484 TTPs estratificados
+    (sesión 19). Justifica empíricamente la decisión arquitectónica de descartar el juez v1 y validar v2.
+    Anotador único defendido como <em>expert oracle</em> dado el carácter cerrado de la ontología ATT&CK.
+  </p>
+</section>
+
+{# ── Findings strip ── #}
+<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-12">
+  <article class="rounded-xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80 font-semibold mb-1">Esfuerzo de anotación</div>
+    <div class="font-mono text-cyan-100 text-2xl">484</div>
+    <div class="mt-1 text-xs text-slate-400">TTPs anotados manualmente · 384 stratified (conf=0.75) + 100 control (conf=1.0).</div>
+  </article>
+  <article class="rounded-xl border border-rose-400/20 bg-gradient-to-br from-rose-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-rose-300/80 font-semibold mb-1">Fiabilidad v1</div>
+    <div class="font-mono text-rose-100 text-2xl">α = −0.145</div>
+    <div class="mt-1 text-xs text-slate-400">Krippendorff ordinal sobre stratified. <span class="text-rose-300">Peor que aleatorio</span>: el v1 quedó descartado.</div>
+  </article>
+  <article class="rounded-xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-amber-300/80 font-semibold mb-1">Sobreaceptación v1</div>
+    <div class="font-mono text-amber-100 text-2xl">198 FP</div>
+    <div class="mt-1 text-xs text-slate-400">de 294 rechazos humanos, el v1 había aceptado 198 (<span class="font-mono">67.3% FP</span>).</div>
+  </article>
+  <article class="rounded-xl border border-violet-400/20 bg-gradient-to-br from-violet-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-violet-300/80 font-semibold mb-1">Diagnóstico de fallo</div>
+    <div class="font-mono text-violet-100 text-2xl">79% E1</div>
+    <div class="mt-1 text-xs text-slate-400">de los 236 errores tipificados, 187 son <em>abstracción vaga</em> (E1). Único defecto dominante.</div>
+  </article>
+</section>
+
+{# ── 1. Distribución del sample ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <header class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+    <h2 class="text-lg font-semibold text-white">Distribución del sample anotado</h2>
+    <span class="text-[11px] font-mono text-slate-500">tabla calibration_sample</span>
+  </header>
+  <p class="text-sm text-slate-400 mb-4">
+    Diseño <em>stratified-by-LLM-verdict</em> sobre conf=0.75 + grupo de control aleatorio sobre conf=1.0.
+    El control valida (o refuta) la suposición arquitectónica "conf=1.0 = TTP inequívoco".
+  </p>
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="rounded-lg border border-ink-700 bg-ink-900/40 p-4">
+      <div class="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80 font-semibold mb-3">Stratified · conf=0.75 · N=384</div>
+      <div class="space-y-2 text-[12px]" id="dist-stratified"></div>
+      <p class="text-[11px] text-slate-500 mt-3">Estratificado por veredicto v1: 285 accept (74.1%), 62 reject (16.2%), 37 uncertain (9.7%).</p>
+    </div>
+    <div class="rounded-lg border border-ink-700 bg-ink-900/40 p-4">
+      <div class="text-[10px] uppercase tracking-[0.18em] text-emerald-300/80 font-semibold mb-3">Control · conf=1.0 · N=100</div>
+      <div class="space-y-2 text-[12px]" id="dist-control"></div>
+      <p class="text-[11px] text-slate-500 mt-3">
+        <span class="text-rose-300">Hallazgo crítico</span>: humano acepta solo 41% de conf=1.0 — la suposición arquitectónica "inequívoco" estaba rota.
+      </p>
+    </div>
+  </div>
+</section>
+
+{# ── 2. Confusion humano vs v1 ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <header class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+    <h2 class="text-lg font-semibold text-white">Matriz de confusión · humano ↔ LLM v1 (Qwen 2.5 14B)</h2>
+    <span class="text-[11px] font-mono text-slate-500">stratified · N=384</span>
+  </header>
+  <p class="text-sm text-slate-400 mb-4">
+    Diagonal = acuerdo (en verde). Off-diagonal accept↔reject = error de calibración. La gran masa
+    está en la celda <span class="text-rose-300 font-mono">human=reject / v1=accept</span> (198 casos):
+    el v1 aceptaba sistemáticamente lo que el humano rechazaba.
+  </p>
+  <div class="grid lg:grid-cols-[1fr_280px] gap-6 items-start">
+    <div class="overflow-x-auto">
+      <table class="w-full text-[12px]" id="confusion-table">
+        <thead>
+          <tr class="text-[10px] uppercase tracking-[0.16em] text-slate-500">
+            <th></th>
+            <th class="px-3 pb-2 text-center font-medium font-mono">v1: accept</th>
+            <th class="px-3 pb-2 text-center font-medium font-mono">v1: reject</th>
+            <th class="px-3 pb-2 text-center font-medium font-mono">v1: uncertain</th>
+            <th class="px-3 pb-2 text-center font-medium font-mono">v1: (none)</th>
+            <th class="px-3 pb-2 text-center font-medium font-mono text-slate-300">total</th>
+          </tr>
+        </thead>
+        <tbody id="confusion-tbody"></tbody>
+      </table>
+    </div>
+    <div class="rounded-lg border border-ink-700 bg-ink-900/40 p-4 space-y-3 text-sm">
+      <div>
+        <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-1">Acuerdo crudo</div>
+        <div class="font-mono text-cyan-200" id="agreement-crude">—</div>
+      </div>
+      <div>
+        <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-1">Krippendorff α<sub>K</sub> v1</div>
+        <div class="font-mono text-rose-300">−0.1452</div>
+        <div class="text-[10px] text-slate-500 mt-0.5">peor que aleatorio</div>
+      </div>
+      <div>
+        <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-1">Krippendorff α<sub>K</sub> v2</div>
+        <div class="font-mono text-emerald-300">0.5738</div>
+        <div class="text-[10px] text-slate-500 mt-0.5">moderado</div>
+      </div>
+      <div class="pt-2 border-t border-ink-700">
+        <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-1">Salto v1 → v2</div>
+        <div class="font-mono text-emerald-200">+0.719</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ── 3. Taxonomía ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <header class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+    <h2 class="text-lg font-semibold text-white">Taxonomía de errores tipificados</h2>
+    <span class="text-[11px] font-mono text-slate-500">codificados durante la fase 2 de reconciliación</span>
+  </header>
+  <p class="text-sm text-slate-400 mb-4">
+    Codificación Likert tras revelar el veredicto del LLM. Cada desacuerdo recibe un código E1-E5 que
+    explica el modo de fallo. <span class="text-rose-300">E1 (abstracción vaga)</span> domina abrumadoramente.
+  </p>
+  <div class="space-y-2" id="tax-list"></div>
+</section>
+
+{# ── 4. α por fuente ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <header class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+    <h2 class="text-lg font-semibold text-white">Krippendorff α<sub>K</sub> por fuente</h2>
+    <span class="text-[11px] font-mono text-slate-500">computado en sesión 19 con compute_alpha.py</span>
+  </header>
+  <p class="text-sm text-slate-400 mb-4">
+    Desglose por fuente del corpus. Las fuentes con narrativa más técnica (Huntress, TrendMicro) tienen
+    α positivo; las periodísticas/marketing (BleepingComputer, SentinelOne) saturan en negativo.
+    Coherente con la jerarquía CTI Echo Chamber.
+  </p>
+  <div class="overflow-x-auto">
+    <table class="w-full text-[12px]" id="alpha-table">
+      <thead>
+        <tr class="text-[10px] uppercase tracking-[0.16em] text-slate-500 border-b border-ink-700">
+          <th class="text-left py-2 pr-3 font-medium">Fuente</th>
+          <th class="text-right py-2 pr-3 font-medium">N</th>
+          <th class="text-right py-2 pr-3 font-medium">α<sub>K</sub></th>
+          <th class="text-left py-2 pr-3 font-medium" style="min-width:280px">Visual (escala −1 → +1)</th>
+          <th class="text-left py-2 pr-3 font-medium">Calidad</th>
+        </tr>
+      </thead>
+      <tbody id="alpha-tbody"></tbody>
+    </table>
+  </div>
+</section>
+
+{# ── 5. Quote viewer ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-12">
+  <header class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+    <div>
+      <h2 class="text-lg font-semibold text-white">Quote viewer · 484 anotaciones</h2>
+      <p class="text-sm text-slate-400 mt-1">
+        Navegación por las anotaciones individuales. Útil para inspeccionar ejemplos concretos
+        de cada categoría de error o de los acuerdos.
+      </p>
+    </div>
+    <span id="quotes-count" class="text-[11px] font-mono text-slate-500"></span>
+  </header>
+
+  <div class="flex flex-wrap gap-2 mt-4 mb-3">
+    <input type="search" id="q-search" placeholder="Buscar quote / técnica…"
+           class="flex-1 min-w-[260px] px-3 py-1.5 text-[12px] bg-ink-900 border border-ink-600 rounded-md text-slate-100 placeholder-slate-500 focus:border-cyan-400 outline-none transition">
+    <select id="q-type" class="text-[12px] bg-ink-900 border border-ink-600 rounded-md py-1.5 pl-3 pr-8 text-slate-200 focus:border-cyan-400 outline-none">
+      <option value="">Todos los tipos</option>
+      <option value="stratified">Stratified</option>
+      <option value="control">Control</option>
+    </select>
+    <select id="q-human" class="text-[12px] bg-ink-900 border border-ink-600 rounded-md py-1.5 pl-3 pr-8 text-slate-200 focus:border-cyan-400 outline-none">
+      <option value="">Veredicto humano</option>
+      <option value="accept">accept</option>
+      <option value="reject">reject</option>
+      <option value="uncertain">uncertain</option>
+    </select>
+    <select id="q-llm" class="text-[12px] bg-ink-900 border border-ink-600 rounded-md py-1.5 pl-3 pr-8 text-slate-200 focus:border-cyan-400 outline-none">
+      <option value="">Veredicto LLM v1</option>
+      <option value="accept">accept</option>
+      <option value="reject">reject</option>
+      <option value="uncertain">uncertain</option>
+      <option value="__none__">sin v1 (control)</option>
+    </select>
+    <select id="q-err" class="text-[12px] bg-ink-900 border border-ink-600 rounded-md py-1.5 pl-3 pr-8 text-slate-200 focus:border-cyan-400 outline-none">
+      <option value="">Cualquier error</option>
+      <option value="E1">E1 abstracción</option>
+      <option value="E2">E2 temporal</option>
+      <option value="E4">E4 taxonómico</option>
+      <option value="agree">Acuerdo (sin código)</option>
+    </select>
+    <select id="q-source" class="text-[12px] bg-ink-900 border border-ink-600 rounded-md py-1.5 pl-3 pr-8 text-slate-200 focus:border-cyan-400 outline-none">
+      <option value="">Todas las fuentes</option>
+    </select>
+    <button id="q-reset"
+            class="text-[11px] font-mono uppercase tracking-wider px-3 py-1.5 rounded-md border border-ink-600 text-slate-400 hover:border-cyan-400 hover:text-cyan-300 transition">
+      Reset
+    </button>
+  </div>
+
+  <div id="quotes-list" class="space-y-3"></div>
+
+  <div class="flex items-center justify-center gap-2 mt-6 text-[12px]" id="quotes-pager"></div>
+</section>
+
+<section class="text-xs text-slate-500 mb-12">
+  Datos en vivo desde <span class="font-mono text-slate-400">calibration_sample</span>.
+  α por fuente computado por <span class="font-mono text-slate-400">compute_alpha.py</span> sobre el snapshot de la sesión 19.
+</section>
+
+<script>
+const VERDICT_COLORS = {
+  accept:    'bg-emerald-500/15 text-emerald-200 border-emerald-400/30',
+  reject:    'bg-rose-500/15 text-rose-200 border-rose-400/30',
+  uncertain: 'bg-amber-500/15 text-amber-200 border-amber-400/30',
+  null:      'bg-ink-700/50 text-slate-500 border-ink-600',
+};
+const ERROR_LABELS = {
+  E1: { name: 'Abstracción vaga',         color: 'rose'    },
+  E2: { name: 'Temporal / condicional',   color: 'amber'   },
+  E3: { name: 'Defensivo',                color: 'violet'  },
+  E4: { name: 'Error taxonómico',         color: 'cyan'    },
+  E5: { name: 'Ambiguo',                  color: 'slate'   },
+};
+const ERROR_COLOR_CLASS = {
+  rose:    'bg-rose-500/15 text-rose-200 border-rose-400/30',
+  amber:   'bg-amber-500/15 text-amber-200 border-amber-400/30',
+  violet:  'bg-violet-500/15 text-violet-200 border-violet-400/30',
+  cyan:    'bg-cyan-500/15 text-cyan-200 border-cyan-400/30',
+  slate:   'bg-ink-700/50 text-slate-300 border-ink-600',
+};
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+let DATA = null;
+
+fetch('/api/calibration-stats/data', { cache: 'no-store' })
+  .then(r => r.json())
+  .then(d => {
+    DATA = d;
+    renderDistributions();
+    renderConfusion();
+    renderTaxonomy();
+    renderAlphaBySource();
+    initQuoteViewer();
+  })
+  .catch(err => console.error('calibration data error', err));
+
+// ── 1. Distribución del sample ────────────────────────────────────────────────
+function renderDistributions() {
+  // stratified: contar humano + v1 verdicts agregando confusion_v1
+  const strat = { accept:0, reject:0, uncertain:0 };
+  for (const r of DATA.confusion_v1) strat[r.human] = (strat[r.human] || 0) + r.count;
+  const stratTotal = strat.accept + strat.reject + strat.uncertain;
+
+  const ctrl = DATA.control_distribution || {};
+  const ctrlTotal = (ctrl.accept || 0) + (ctrl.reject || 0) + (ctrl.uncertain || 0);
+
+  const bar = (label, n, total, color) => {
+    const pct = total ? (n / total * 100) : 0;
+    return `<div>
+      <div class="flex justify-between mb-1"><span class="text-slate-300">${label}</span><span class="font-mono"><span class="${color}">${n}</span><span class="text-slate-500"> · ${pct.toFixed(1)}%</span></span></div>
+      <div class="h-1.5 bg-ink-700 rounded-full overflow-hidden">
+        <div class="h-full ${color.replace('text-','bg-').replace('-300','-400').replace('-200','-400')}" style="width:${pct.toFixed(2)}%"></div>
+      </div>
+    </div>`;
+  };
+  document.getElementById('dist-stratified').innerHTML = `
+    ${bar('human: accept',    strat.accept,    stratTotal, 'text-emerald-300')}
+    ${bar('human: reject',    strat.reject,    stratTotal, 'text-rose-300')}
+    ${bar('human: uncertain', strat.uncertain, stratTotal, 'text-amber-300')}
+  `;
+  document.getElementById('dist-control').innerHTML = `
+    ${bar('human: accept',    ctrl.accept    || 0, ctrlTotal, 'text-emerald-300')}
+    ${bar('human: reject',    ctrl.reject    || 0, ctrlTotal, 'text-rose-300')}
+    ${bar('human: uncertain', ctrl.uncertain || 0, ctrlTotal, 'text-amber-300')}
+  `;
+}
+
+// ── 2. Confusion humano vs v1 ─────────────────────────────────────────────────
+function renderConfusion() {
+  const verdicts = ['accept', 'reject', 'uncertain'];
+  const v1Cats = ['accept', 'reject', 'uncertain', null];
+  const m = {};
+  for (const r of DATA.confusion_v1) m[`${r.human}|${r.v1 || '__null__'}`] = r.count;
+
+  const cell = (h, v) => {
+    const cnt = m[`${h}|${v || '__null__'}`] || 0;
+    if (cnt === 0) return `<td class="text-center font-mono px-3 py-2 text-slate-700">·</td>`;
+    const isMatch = (h === v);
+    const isErr = (h === 'accept' && v === 'reject') || (h === 'reject' && v === 'accept');
+    const cls = isMatch ? 'bg-emerald-500/20 text-emerald-100 ring-1 ring-emerald-400/40' :
+                isErr ? 'bg-rose-500/15 text-rose-200' :
+                'bg-amber-500/10 text-amber-200';
+    return `<td class="text-center font-mono px-3 py-2 rounded ${cls}">${cnt}</td>`;
+  };
+
+  const tbody = document.getElementById('confusion-tbody');
+  let total = 0, agree = 0;
+  let html = '';
+  for (const h of verdicts) {
+    let rowTotal = 0;
+    let row = `<tr><th class="text-right pr-3 py-2 font-mono text-[11px] text-slate-400">human: ${h}</th>`;
+    for (const v of v1Cats) {
+      row += cell(h, v);
+      rowTotal += m[`${h}|${v || '__null__'}`] || 0;
+    }
+    row += `<td class="text-center font-mono px-3 py-2 text-slate-300 font-semibold">${rowTotal}</td></tr>`;
+    html += row;
+    total += rowTotal;
+    agree += m[`${h}|${h}`] || 0;
+  }
+  // Fila total v1
+  let footRow = `<tr class="border-t border-ink-700"><th class="text-right pr-3 py-2 font-mono text-[11px] text-slate-400">total</th>`;
+  for (const v of v1Cats) {
+    let colTotal = 0;
+    for (const h of verdicts) colTotal += m[`${h}|${v || '__null__'}`] || 0;
+    footRow += `<td class="text-center font-mono px-3 py-2 text-slate-300 font-semibold">${colTotal || ''}</td>`;
+  }
+  footRow += `<td class="text-center font-mono px-3 py-2 text-slate-200 font-semibold">${total}</td></tr>`;
+  tbody.innerHTML = html + footRow;
+
+  document.getElementById('agreement-crude').textContent =
+    total ? `${(agree / total * 100).toFixed(2)}% (${agree} / ${total})` : '—';
+}
+
+// ── 3. Taxonomía ──────────────────────────────────────────────────────────────
+function renderTaxonomy() {
+  const t = DATA.taxonomy || {};
+  const total = Object.values(t).reduce((s, v) => s + v, 0);
+  const order = ['E1', 'E2', 'E3', 'E4', 'E5'];
+  const list = document.getElementById('tax-list');
+  list.innerHTML = order.map(code => {
+    const n = t[code] || 0;
+    if (n === 0 && !ERROR_LABELS[code]) return '';
+    const pct = total ? (n / total * 100) : 0;
+    const meta = ERROR_LABELS[code] || { name: '—', color: 'slate' };
+    const colorBar = {
+      rose: 'bg-rose-400', amber: 'bg-amber-400', violet: 'bg-violet-400',
+      cyan: 'bg-cyan-400', slate: 'bg-slate-400'
+    }[meta.color];
+    return `<div>
+      <div class="flex items-baseline justify-between mb-1.5">
+        <div class="flex items-baseline gap-2">
+          <span class="font-mono text-[11px] px-1.5 py-0.5 rounded border ${ERROR_COLOR_CLASS[meta.color]}">${code}</span>
+          <span class="text-slate-300">${meta.name}</span>
+        </div>
+        <span class="font-mono text-[12px]"><span class="text-slate-100">${n}</span><span class="text-slate-500"> · ${pct.toFixed(1)}%</span></span>
+      </div>
+      <div class="h-2 bg-ink-700 rounded-full overflow-hidden">
+        <div class="h-full ${colorBar}" style="width:${pct.toFixed(2)}%"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 4. Alpha por fuente ───────────────────────────────────────────────────────
+function renderAlphaBySource() {
+  const tb = document.getElementById('alpha-tbody');
+  const rows = [...DATA.alpha_by_source].sort((a, b) => b.alpha - a.alpha);
+  // Escala visual: -1 ... 1, centro en 0
+  // 0 = 50%, +1 = 100%, -1 = 0%
+  tb.innerHTML = rows.map(r => {
+    const a = r.alpha;
+    const pos = ((a + 1) / 2 * 100).toFixed(2);
+    const aCls = a >= 0.6 ? 'text-emerald-300' : a >= 0.0 ? 'text-cyan-300' : 'text-rose-300';
+    const verdictMap = {
+      good:     ['Buena',   'bg-emerald-500/15 text-emerald-200 border-emerald-400/30'],
+      marginal: ['Marginal','bg-cyan-500/15 text-cyan-200 border-cyan-400/30'],
+      poor:     ['Pobre',   'bg-rose-500/15 text-rose-200 border-rose-400/30'],
+    };
+    const [vlabel, vcls] = verdictMap[r.verdict_h] || ['—', 'bg-ink-700/50 text-slate-300 border-ink-600'];
+    return `<tr class="hover:bg-ink-700/30 border-b border-ink-700/50">
+      <td class="py-2 pr-3 font-mono text-slate-200">${r.source}</td>
+      <td class="py-2 pr-3 text-right font-mono text-slate-400">${r.n}</td>
+      <td class="py-2 pr-3 text-right font-mono ${aCls}">${a >= 0 ? '+' : ''}${a.toFixed(3)}</td>
+      <td class="py-2 pr-3">
+        <div class="relative h-3 rounded-full bg-ink-700 overflow-hidden">
+          <div class="absolute top-0 bottom-0 w-px bg-slate-500" style="left:50%"></div>
+          <div class="absolute top-0 bottom-0 ${a >= 0 ? 'bg-emerald-400/70' : 'bg-rose-400/70'}"
+               style="${a >= 0 ? `left:50%; width:${(a*50).toFixed(2)}%` : `right:50%; width:${(-a*50).toFixed(2)}%`}"></div>
+        </div>
+        <div class="flex justify-between text-[9px] font-mono text-slate-600 mt-0.5"><span>−1</span><span>0</span><span>+1</span></div>
+      </td>
+      <td class="py-2 pr-3"><span class="text-[10px] px-1.5 py-0.5 rounded border ${vcls}">${vlabel}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 5. Quote viewer ──────────────────────────────────────────────────────────
+const PAGE_SIZE = 10;
+let qFiltered = [], qPage = 0;
+
+function initQuoteViewer() {
+  // Poblar dropdown de fuentes
+  const sources = [...new Set((DATA.quotes || []).map(q => q.source).filter(Boolean))].sort();
+  const sel = document.getElementById('q-source');
+  for (const s of sources) {
+    const opt = document.createElement('option');
+    opt.value = s; opt.textContent = s;
+    sel.appendChild(opt);
+  }
+  ['q-search', 'q-type', 'q-human', 'q-llm', 'q-err', 'q-source'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => { qPage = 0; applyQuoteFilters(); });
+    el.addEventListener('change', () => { qPage = 0; applyQuoteFilters(); });
+  });
+  document.getElementById('q-reset').addEventListener('click', () => {
+    document.getElementById('q-search').value = '';
+    ['q-type','q-human','q-llm','q-err','q-source'].forEach(id => document.getElementById(id).value = '');
+    qPage = 0;
+    applyQuoteFilters();
+  });
+  applyQuoteFilters();
+}
+
+function applyQuoteFilters() {
+  const q = document.getElementById('q-search').value.trim().toLowerCase();
+  const type = document.getElementById('q-type').value;
+  const human = document.getElementById('q-human').value;
+  const llm = document.getElementById('q-llm').value;
+  const err = document.getElementById('q-err').value;
+  const source = document.getElementById('q-source').value;
+
+  qFiltered = (DATA.quotes || []).filter(it => {
+    if (type && it.sample_type !== type) return false;
+    if (human && it.human_blind_verdict !== human) return false;
+    if (llm) {
+      if (llm === '__none__') { if (it.llm_verdict) return false; }
+      else if (it.llm_verdict !== llm) return false;
+    }
+    if (err) {
+      if (err === 'agree') { if (it.error_taxonomy_code) return false; }
+      else if (it.error_taxonomy_code !== err) return false;
+    }
+    if (source && it.source !== source) return false;
+    if (q) {
+      const hay = ((it.quote || '') + ' ' + (it.technique_id || '') + ' ' + (it.llm_reasoning || '')).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  renderQuotes();
+}
+
+function renderQuotes() {
+  const list = document.getElementById('quotes-list');
+  const count = document.getElementById('quotes-count');
+  count.textContent = `${qFiltered.length} / ${(DATA.quotes || []).length} anotaciones`;
+  if (qFiltered.length === 0) {
+    list.innerHTML = '<div class="rounded-lg border border-ink-700 bg-ink-900/30 p-8 text-center font-mono text-[12px] text-slate-500">Sin resultados con esos filtros.</div>';
+    document.getElementById('quotes-pager').innerHTML = '';
+    return;
+  }
+
+  const totalPages = Math.ceil(qFiltered.length / PAGE_SIZE);
+  if (qPage >= totalPages) qPage = 0;
+  const slice = qFiltered.slice(qPage * PAGE_SIZE, qPage * PAGE_SIZE + PAGE_SIZE);
+
+  list.innerHTML = slice.map(it => {
+    const hVerdict = it.human_blind_verdict || 'null';
+    const lVerdict = it.llm_verdict || 'null';
+    const errCode = it.error_taxonomy_code;
+    const errMeta = errCode ? ERROR_LABELS[errCode] : null;
+    const errBadge = errCode
+      ? `<span class="text-[10px] px-1.5 py-0.5 rounded border font-mono ${ERROR_COLOR_CLASS[errMeta.color]}">${errCode} · ${errMeta.name}</span>`
+      : `<span class="text-[10px] px-1.5 py-0.5 rounded border bg-emerald-500/10 text-emerald-300 border-emerald-400/20">acuerdo</span>`;
+    const sampleBadge = it.sample_type === 'control'
+      ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-400/20">control</span>`
+      : `<span class="text-[10px] px-1.5 py-0.5 rounded font-mono bg-ink-700/50 text-slate-300 border border-ink-600">stratified</span>`;
+
+    return `<article class="rounded-lg border border-ink-700 bg-ink-900/40 p-4 hover:border-cyan-400/30 transition">
+      <header class="flex flex-wrap items-baseline gap-2 mb-2">
+        <span class="font-mono text-cyan-300 text-sm">${escapeHtml(it.technique_id)}</span>
+        ${sampleBadge}
+        <span class="font-mono text-[11px] text-slate-500">${escapeHtml(it.source || '')}</span>
+        ${errBadge}
+        <span class="ml-auto text-[10px] font-mono text-slate-600">#${it.id} · article ${it.article_id}</span>
+      </header>
+      <blockquote class="border-l-2 border-cyan-400/40 pl-3 text-[13px] italic text-slate-200 mb-3 leading-relaxed">
+        "${escapeHtml(it.quote || '')}"
+      </blockquote>
+      <div class="flex flex-wrap gap-3 text-[11px] mb-3">
+        <span><span class="text-slate-500 uppercase tracking-wider mr-1">Humano</span><span class="px-1.5 py-0.5 rounded font-mono border ${VERDICT_COLORS[hVerdict] || VERDICT_COLORS.null}">${hVerdict}</span></span>
+        <span><span class="text-slate-500 uppercase tracking-wider mr-1">LLM v1</span><span class="px-1.5 py-0.5 rounded font-mono border ${VERDICT_COLORS[lVerdict] || VERDICT_COLORS.null}">${it.llm_verdict || '—'}</span></span>
+      </div>
+      ${it.llm_reasoning ? `<details class="text-[12px] text-slate-400">
+        <summary class="cursor-pointer text-slate-500 hover:text-cyan-300 transition">Ver razonamiento del LLM v1</summary>
+        <div class="mt-2 pl-3 border-l border-ink-700 leading-relaxed">${escapeHtml(it.llm_reasoning)}</div>
+      </details>` : ''}
+      ${it.annotation_notes ? `<details class="text-[12px] text-slate-400 mt-2">
+        <summary class="cursor-pointer text-slate-500 hover:text-cyan-300 transition">Ver notas del anotador</summary>
+        <div class="mt-2 pl-3 border-l border-amber-400/40 leading-relaxed">${escapeHtml(it.annotation_notes)}</div>
+      </details>` : ''}
+    </article>`;
+  }).join('');
+
+  // Pager
+  const pager = document.getElementById('quotes-pager');
+  const btn = (label, page, disabled, active) =>
+    `<button ${disabled ? 'disabled' : ''} onclick="qPage=${page}; renderQuotes(); window.scrollTo({top:document.querySelector('#quotes-list').offsetTop-80, behavior:'smooth'});"
+       class="px-3 py-1 rounded-md border text-[12px] font-mono transition ${active ? 'border-cyan-400 text-cyan-300 bg-cyan-500/10' : 'border-ink-600 text-slate-400 hover:border-cyan-400 hover:text-cyan-300'} ${disabled ? 'opacity-30 cursor-not-allowed hover:border-ink-600 hover:text-slate-400' : ''}">${label}</button>`;
+  let pHtml = btn('←', Math.max(0, qPage - 1), qPage === 0, false);
+  // Mostrar máximo 7 páginas: actual ± 3
+  const start = Math.max(0, qPage - 3);
+  const end = Math.min(totalPages, start + 7);
+  for (let i = start; i < end; i++) {
+    pHtml += btn(String(i + 1), i, false, i === qPage);
+  }
+  pHtml += btn('→', Math.min(totalPages - 1, qPage + 1), qPage >= totalPages - 1, false);
+  pHtml += `<span class="ml-3 text-slate-500 font-mono text-[11px]">página ${qPage + 1} / ${totalPages}</span>`;
+  pager.innerHTML = pHtml;
+}
+</script>
+
+{% endblock %}

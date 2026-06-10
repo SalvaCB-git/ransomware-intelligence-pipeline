@@ -1,0 +1,884 @@
+{% extends "base.html" %}
+{% block title %}Pipeline en vivo · Ransomware Intelligence Pipeline{% endblock %}
+
+{% block content %}
+<section class="mb-10">
+  <div class="flex items-baseline gap-3 mb-2">
+    <span class="text-xs uppercase tracking-[0.2em] text-cyan-300/80 font-semibold">Demo en vivo</span>
+    <span class="h-px flex-1 bg-gradient-to-r from-cyan-400/40 to-transparent"></span>
+  </div>
+  <h1 class="text-3xl sm:text-4xl font-semibold leading-tight text-white">
+    Pipeline ejecutándose en tiempo real
+  </h1>
+  <p class="mt-3 max-w-3xl text-slate-400">
+    Envía un artículo al PC remoto (RTX 4070 Ti) y observa cada etapa del pipeline conforme se ejecuta:
+    pre-filtrado, extracción RAG con Qwen 2.5 14B, validación con Gemma 4 26B. Cada etapa expone
+    su prompt completo, respuesta del modelo y métricas.
+  </p>
+</section>
+
+{# ── Estado del PC ────────────────────────────────────────── #}
+<section class="mb-8 rounded-2xl border border-ink-700 bg-ink-800/60 p-5">
+  <header class="flex items-center justify-between mb-4">
+    <h2 class="text-sm uppercase tracking-wider text-cyan-300/80 font-semibold">PC remoto</h2>
+    <span id="pc-detailed-led" class="px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/60 text-slate-300">…</span>
+  </header>
+  <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+    <div>
+      <dt class="text-xs uppercase tracking-wider text-slate-500">Host</dt>
+      <dd id="pc-hostname" class="mt-1 font-mono text-slate-200">—</dd>
+    </div>
+    <div>
+      <dt class="text-xs uppercase tracking-wider text-slate-500">Última señal</dt>
+      <dd id="pc-last-seen" class="mt-1 text-slate-200">—</dd>
+    </div>
+    <div>
+      <dt class="text-xs uppercase tracking-wider text-slate-500">Ollama</dt>
+      <dd id="pc-ollama" class="mt-1 text-slate-200">—</dd>
+    </div>
+    <div>
+      <dt class="text-xs uppercase tracking-wider text-slate-500">GPU memory</dt>
+      <dd id="pc-gpu" class="mt-1 text-slate-200">—</dd>
+    </div>
+  </dl>
+</section>
+
+{# ── Formulario + historial ──────────────────────────────── #}
+<section class="mb-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 rounded-2xl border border-ink-700 bg-ink-800/60 p-5">
+    <header class="flex items-center gap-2 mb-4">
+      <h2 class="text-sm uppercase tracking-wider text-cyan-300/80 font-semibold">Enviar artículo</h2>
+    </header>
+
+    <div class="flex gap-1 mb-4 border-b border-ink-700">
+      <button id="tab-corpus" class="tab-btn px-4 py-2 text-sm border-b-2 border-cyan-400 text-cyan-300 font-medium" data-tab="corpus">
+        Desde corpus
+      </button>
+      <button id="tab-paste" class="tab-btn px-4 py-2 text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200" data-tab="paste">
+        Pegar texto
+      </button>
+    </div>
+
+    {# ── Tab corpus ── #}
+    <div id="panel-corpus" class="space-y-3">
+      <input id="corpus-search" type="text" placeholder="Buscar por título…"
+        class="w-full px-3 py-2 rounded-md bg-ink-900 border border-ink-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400 text-sm"/>
+      <div id="corpus-results" class="max-h-64 overflow-y-auto divide-y divide-ink-700 rounded-md border border-ink-700 bg-ink-900/40 text-sm">
+        <p class="px-3 py-2 text-slate-500">Cargando artículos…</p>
+      </div>
+      <div id="corpus-selection" class="hidden p-3 rounded-md border border-cyan-500/30 bg-cyan-500/5">
+        <div class="text-xs uppercase tracking-wider text-cyan-300/80">Seleccionado</div>
+        <div id="corpus-selection-title" class="mt-1 font-medium text-slate-100"></div>
+        <div id="corpus-selection-meta" class="mt-0.5 text-xs text-slate-400 font-mono"></div>
+      </div>
+    </div>
+
+    {# ── Tab paste ── #}
+    <div id="panel-paste" class="hidden space-y-3">
+      <input id="paste-title" type="text" placeholder="Título (opcional)"
+        class="w-full px-3 py-2 rounded-md bg-ink-900 border border-ink-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400 text-sm"/>
+      <textarea id="paste-body" rows="10" placeholder="Pega aquí el texto del artículo (mínimo ~200 palabras para pasar el pre-filtrado)…"
+        class="w-full px-3 py-2 rounded-md bg-ink-900 border border-ink-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400 text-sm font-mono"></textarea>
+      <div class="text-xs text-slate-500" id="paste-wordcount">0 palabras</div>
+    </div>
+
+    <div class="mt-5 flex items-center justify-between">
+      <p class="text-xs text-slate-500" id="form-hint">El job se ejecuta en cuanto el PC pase su próximo heartbeat (≤2s).</p>
+      <button id="submit-job" disabled
+        class="px-4 py-2 rounded-md bg-cyan-500/90 hover:bg-cyan-400 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-ink-900 font-semibold text-sm transition">
+        Ejecutar pipeline
+      </button>
+    </div>
+  </div>
+
+  <aside class="rounded-2xl border border-ink-700 bg-ink-800/60 p-5">
+    <header class="flex items-center justify-between mb-3">
+      <h2 class="text-sm uppercase tracking-wider text-cyan-300/80 font-semibold">Historial</h2>
+      <button id="refresh-history" class="text-xs text-slate-400 hover:text-cyan-300">↻</button>
+    </header>
+    <ul id="history-list" class="space-y-2 text-sm max-h-96 overflow-y-auto">
+      <li class="text-slate-500">Cargando…</li>
+    </ul>
+  </aside>
+</section>
+
+{# ── Pipeline timeline ─────────────────────────────────────── #}
+<section class="mb-8">
+  <header class="flex items-baseline justify-between mb-4">
+    <h2 class="text-lg font-semibold text-white">Ejecución</h2>
+    <div id="exec-status" class="text-xs px-3 py-1 rounded-md bg-slate-700/60 text-slate-300">sin job</div>
+  </header>
+
+  <ol id="timeline" class="space-y-4">
+    <li id="stage-prefilter" data-stage="prefilter" class="stage-card rounded-2xl border border-ink-700 bg-ink-800/40 overflow-hidden" data-state="idle">
+      <button class="stage-toggle w-full flex items-center gap-3 px-5 py-4 text-left">
+        <span class="stage-num grid place-items-center w-8 h-8 rounded-full bg-slate-700/60 text-slate-300 text-sm font-mono">1</span>
+        <span class="flex-1">
+          <span class="block text-base font-semibold text-white">Pre-filtrado</span>
+          <span class="block text-xs text-slate-400">Heurísticas + similitud coseno contra ChromaDB MITRE</span>
+        </span>
+        <span class="stage-elapsed text-xs font-mono text-slate-400"></span>
+        <span class="stage-badge text-xs px-2 py-0.5 rounded">—</span>
+        <span class="chevron text-slate-400">▾</span>
+      </button>
+      <div class="stage-body hidden border-t border-ink-700 bg-ink-900/40 px-5 py-4 text-sm space-y-3"></div>
+    </li>
+
+    <li id="stage-rag_extract" data-stage="rag_extract" class="stage-card rounded-2xl border border-ink-700 bg-ink-800/40 overflow-hidden" data-state="idle">
+      <button class="stage-toggle w-full flex items-center gap-3 px-5 py-4 text-left">
+        <span class="stage-num grid place-items-center w-8 h-8 rounded-full bg-slate-700/60 text-slate-300 text-sm font-mono">2</span>
+        <span class="flex-1">
+          <span class="block text-base font-semibold text-white">Extracción RAG</span>
+          <span class="block text-xs text-slate-400">Qwen 2.5 14B Q4_K_M · multi-query semántico + tool lookup</span>
+        </span>
+        <span class="stage-elapsed text-xs font-mono text-slate-400"></span>
+        <span class="stage-badge text-xs px-2 py-0.5 rounded">—</span>
+        <span class="chevron text-slate-400">▾</span>
+      </button>
+      <div class="stage-body hidden border-t border-ink-700 bg-ink-900/40 px-5 py-4 text-sm space-y-3"></div>
+    </li>
+
+    <li id="stage-judge_v2" data-stage="judge_v2" class="stage-card rounded-2xl border border-ink-700 bg-ink-800/40 overflow-hidden" data-state="idle">
+      <button class="stage-toggle w-full flex items-center gap-3 px-5 py-4 text-left">
+        <span class="stage-num grid place-items-center w-8 h-8 rounded-full bg-slate-700/60 text-slate-300 text-sm font-mono">3</span>
+        <span class="flex-1">
+          <span class="block text-base font-semibold text-white">Judge v2 (Gemma 4 26B)</span>
+          <span class="block text-xs text-slate-400">Validación de cada TTP vía Google AI Studio</span>
+        </span>
+        <span class="stage-elapsed text-xs font-mono text-slate-400"></span>
+        <span class="stage-badge text-xs px-2 py-0.5 rounded">—</span>
+        <span class="chevron text-slate-400">▾</span>
+      </button>
+      <div class="stage-body hidden border-t border-ink-700 bg-ink-900/40 px-5 py-4 text-sm space-y-3"></div>
+    </li>
+
+    <li id="stage-pipeline" data-stage="pipeline" class="stage-card rounded-2xl border border-ink-700 bg-ink-800/40 overflow-hidden" data-state="idle">
+      <button class="stage-toggle w-full flex items-center gap-3 px-5 py-4 text-left">
+        <span class="stage-num grid place-items-center w-8 h-8 rounded-full bg-slate-700/60 text-slate-300 text-sm font-mono">4</span>
+        <span class="flex-1">
+          <span class="block text-base font-semibold text-white">Resultado</span>
+          <span class="block text-xs text-slate-400">Resumen final del job</span>
+        </span>
+        <span class="stage-elapsed text-xs font-mono text-slate-400"></span>
+        <span class="stage-badge text-xs px-2 py-0.5 rounded">—</span>
+        <span class="chevron text-slate-400">▾</span>
+      </button>
+      <div class="stage-body hidden border-t border-ink-700 bg-ink-900/40 px-5 py-4 text-sm space-y-3"></div>
+    </li>
+  </ol>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+  // ── Helpers ───────────────────────────────────────────────
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function fmtDuration(sec) {
+    if (sec == null) return '';
+    if (sec < 1) return (sec * 1000).toFixed(0) + ' ms';
+    if (sec < 60) return sec.toFixed(1) + ' s';
+    const m = Math.floor(sec / 60), s = Math.round(sec % 60);
+    return `${m}m ${s}s`;
+  }
+
+  function fmtAgo(seconds) {
+    if (seconds == null) return '—';
+    if (seconds < 60) return Math.round(seconds) + 's atrás';
+    if (seconds < 3600) return Math.round(seconds / 60) + 'min atrás';
+    return Math.round(seconds / 3600) + 'h atrás';
+  }
+
+  // ── PC status detail ──────────────────────────────────────
+  async function refreshPcStatus() {
+    try {
+      const r = await fetch('/api/demo/pc_status');
+      const d = await r.json();
+      const led = $('#pc-detailed-led');
+      if (d.online) {
+        led.textContent = 'ONLINE';
+        led.className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/30';
+      } else {
+        led.textContent = 'OFFLINE';
+        led.className = 'px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/60 text-slate-300';
+      }
+      $('#pc-hostname').textContent = d.hostname || '—';
+      $('#pc-last-seen').textContent = fmtAgo(d.seconds_since);
+
+      const m = d.meta || {};
+      if (d.online) {
+        const models = Array.isArray(m.ollama_models) ? m.ollama_models : [];
+        const ollamaStatus = m.ollama_ok ? 'OK' : (m.ollama_ok === false ? 'KO' : '—');
+        $('#pc-ollama').innerHTML = `<span class="font-mono">${escapeHtml(ollamaStatus)}</span>`
+          + (models.length
+              ? `<div class="text-xs text-slate-500 font-mono truncate" title="${escapeHtml(models.join(', '))}">${escapeHtml(models.join(', '))}</div>`
+              : '');
+        const gpu = (typeof m.gpu_mem_used_mb === 'number')
+          ? `${m.gpu_mem_used_mb} MB`
+          : '—';
+        const curJob = m.current_job_id != null ? ` · job #${m.current_job_id}` : '';
+        $('#pc-gpu').innerHTML = `<span class="font-mono">${escapeHtml(gpu)}</span>`
+          + (curJob ? `<div class="text-xs text-cyan-300 font-mono">${escapeHtml(curJob.trim())}</div>` : '');
+      } else {
+        $('#pc-ollama').textContent = '—';
+        $('#pc-gpu').textContent = '—';
+      }
+    } catch (e) { /* silent */ }
+  }
+  refreshPcStatus();
+  setInterval(refreshPcStatus, 5000);
+
+  // ── Tabs ──────────────────────────────────────────────────
+  let activeTab = 'corpus';
+  $$('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeTab = btn.dataset.tab;
+      $$('.tab-btn').forEach(b => {
+        if (b.dataset.tab === activeTab) {
+          b.className = 'tab-btn px-4 py-2 text-sm border-b-2 border-cyan-400 text-cyan-300 font-medium';
+        } else {
+          b.className = 'tab-btn px-4 py-2 text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200';
+        }
+      });
+      $('#panel-corpus').classList.toggle('hidden', activeTab !== 'corpus');
+      $('#panel-paste').classList.toggle('hidden', activeTab !== 'paste');
+      updateSubmitEnabled();
+    });
+  });
+
+  // ── Corpus search ─────────────────────────────────────────
+  let selectedCorpusArticle = null;
+
+  async function searchCorpus(q) {
+    const r = await fetch('/api/demo/articles/search' + (q ? '?q=' + encodeURIComponent(q) : ''));
+    const d = await r.json();
+    const list = $('#corpus-results');
+    if (!d.articles || d.articles.length === 0) {
+      list.innerHTML = '<p class="px-3 py-2 text-slate-500">Sin resultados.</p>';
+      return;
+    }
+    list.innerHTML = d.articles.map(a => `
+      <button class="corpus-item w-full text-left px-3 py-2 hover:bg-ink-800/60 transition" data-id="${a.id}" data-title="${escapeHtml(a.title || '')}" data-pub="${escapeHtml(a.published_utc || '')}" data-source="${escapeHtml(a.source || '')}">
+        <div class="font-medium text-slate-100 line-clamp-1">${escapeHtml(a.title || '(sin título)')}</div>
+        <div class="text-xs text-slate-500 font-mono">#${a.id} · ${escapeHtml(a.source || '?')} · ${escapeHtml(a.published_utc || 'sin fecha')}</div>
+      </button>
+    `).join('');
+    $$('.corpus-item', list).forEach(it => {
+      it.addEventListener('click', () => {
+        selectedCorpusArticle = {
+          id: parseInt(it.dataset.id, 10),
+          title: it.dataset.title,
+          published_utc: it.dataset.pub,
+          source: it.dataset.source,
+        };
+        $('#corpus-selection').classList.remove('hidden');
+        $('#corpus-selection-title').textContent = selectedCorpusArticle.title || '(sin título)';
+        $('#corpus-selection-meta').textContent = `#${selectedCorpusArticle.id} · ${selectedCorpusArticle.source} · ${selectedCorpusArticle.published_utc}`;
+        updateSubmitEnabled();
+      });
+    });
+  }
+
+  let searchDebounce = null;
+  $('#corpus-search').addEventListener('input', (e) => {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => searchCorpus(e.target.value.trim()), 200);
+  });
+  searchCorpus('');
+
+  // ── Paste ─────────────────────────────────────────────────
+  $('#paste-body').addEventListener('input', (e) => {
+    const wc = e.target.value.trim().split(/\s+/).filter(Boolean).length;
+    $('#paste-wordcount').textContent = `${wc} palabras`;
+    updateSubmitEnabled();
+  });
+
+  function updateSubmitEnabled() {
+    const btn = $('#submit-job');
+    if (activeTab === 'corpus') {
+      btn.disabled = !selectedCorpusArticle;
+    } else {
+      btn.disabled = $('#paste-body').value.trim().length < 50;
+    }
+  }
+
+  // ── Submit ────────────────────────────────────────────────
+  $('#submit-job').addEventListener('click', async () => {
+    const btn = $('#submit-job');
+    btn.disabled = true;
+    btn.textContent = 'Enviando…';
+
+    let body;
+    if (activeTab === 'corpus') {
+      body = { input_type: 'corpus', article_id: selectedCorpusArticle.id };
+    } else {
+      body = {
+        input_type: 'paste',
+        title: $('#paste-title').value.trim() || null,
+        body: $('#paste-body').value.trim(),
+      };
+    }
+
+    try {
+      const r = await fetch('/api/demo/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!d.ok) {
+        alert('Error: ' + (d.error || 'unknown'));
+        btn.textContent = 'Ejecutar pipeline';
+        updateSubmitEnabled();
+        return;
+      }
+      btn.textContent = 'Ejecutar pipeline';
+      updateSubmitEnabled();
+      startWatching(d.job_id);
+      refreshHistory();
+    } catch (e) {
+      alert('Error de red: ' + e.message);
+      btn.textContent = 'Ejecutar pipeline';
+      updateSubmitEnabled();
+    }
+  });
+
+  // ── Watcher ───────────────────────────────────────────────
+  let currentJobId = null;
+  let lastEventId = 0;
+  let pollTimer = null;
+  let stageStartTs = {};
+
+  function resetTimeline() {
+    ['prefilter', 'rag_extract', 'judge_v2', 'pipeline'].forEach(s => {
+      const card = $(`#stage-${s}`);
+      if (!card) return;
+      card.dataset.state = 'idle';
+      $('.stage-body', card).classList.add('hidden');
+      $('.stage-body', card).innerHTML = '';
+      $('.stage-elapsed', card).textContent = '';
+      const badge = $('.stage-badge', card);
+      badge.textContent = '—';
+      badge.className = 'stage-badge text-xs px-2 py-0.5 rounded bg-slate-700/60 text-slate-300';
+      const num = $('.stage-num', card);
+      num.className = 'stage-num grid place-items-center w-8 h-8 rounded-full bg-slate-700/60 text-slate-300 text-sm font-mono';
+    });
+    stageStartTs = {};
+  }
+
+  function setStageState(stage, state, badgeText) {
+    const card = $(`#stage-${stage}`);
+    if (!card) return;
+    card.dataset.state = state;
+    const badge = $('.stage-badge', card);
+    const num = $('.stage-num', card);
+    badge.textContent = badgeText;
+    let cls, numCls;
+    if (state === 'running') {
+      cls = 'bg-cyan-500/15 text-cyan-300 ring-1 ring-cyan-400/30';
+      numCls = 'bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-400/40 animate-pulse';
+    } else if (state === 'ok') {
+      cls = 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/30';
+      numCls = 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/30';
+    } else if (state === 'filtered') {
+      cls = 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-400/30';
+      numCls = 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-400/30';
+    } else if (state === 'error') {
+      cls = 'bg-rose-500/15 text-rose-300 ring-1 ring-rose-400/30';
+      numCls = 'bg-rose-500/20 text-rose-300 ring-1 ring-rose-400/30';
+    } else {
+      cls = 'bg-slate-700/60 text-slate-300';
+      numCls = 'bg-slate-700/60 text-slate-300';
+    }
+    badge.className = 'stage-badge text-xs px-2 py-0.5 rounded ' + cls;
+    num.className = 'stage-num grid place-items-center w-8 h-8 rounded-full text-sm font-mono ' + numCls;
+  }
+
+  function appendStageBody(stage, html) {
+    const body = $(`#stage-${stage} .stage-body`);
+    body.innerHTML += html;
+    body.classList.remove('hidden');
+    const card = $(`#stage-${stage}`);
+    $('.chevron', card).textContent = '▴';
+  }
+
+  function setStageBody(stage, html) {
+    const body = $(`#stage-${stage} .stage-body`);
+    body.innerHTML = html;
+  }
+
+  function renderPrompt(label, text) {
+    if (!text) return '';
+    return `
+      <details class="rounded-md bg-ink-900 border border-ink-700">
+        <summary class="cursor-pointer px-3 py-2 text-xs uppercase tracking-wider text-slate-400 hover:text-cyan-300">${escapeHtml(label)} <span class="text-slate-500">(${text.length} chars)</span></summary>
+        <pre class="px-3 py-2 text-xs font-mono text-slate-200 whitespace-pre-wrap max-h-96 overflow-y-auto border-t border-ink-700">${escapeHtml(text)}</pre>
+      </details>`;
+  }
+
+  // ── Prompts estructurados por secciones ───────────────────
+  // Tres tipos de contenido en un prompt:
+  //   - static: parte de la "receta" del extractor (rules, schema, few-shots, etc.)
+  //   - rag:    inyectado en tiempo de ejecución desde el retrieval (ChromaDB,
+  //             MITRE cache, tool lookup). Lo interesante para defensa.
+  //   - input:  contenido del artículo del usuario (cuerpo o quote concreta).
+  function kindStyles(kind) {
+    if (kind === 'rag')   return { bd: 'border-emerald-400/40', bg: 'bg-emerald-500/5', tag: 'bg-emerald-500/15 text-emerald-300', label: 'RAG' };
+    if (kind === 'input') return { bd: 'border-amber-400/40',   bg: 'bg-amber-500/5',   tag: 'bg-amber-500/15 text-amber-300',   label: 'INPUT' };
+    return                       { bd: 'border-slate-600/60',  bg: 'bg-ink-900/40',     tag: 'bg-slate-700/60 text-slate-300',   label: 'STATIC' };
+  }
+
+  // Descompone `text` en bloques usando una lista ordenada de marcadores.
+  // Cada `splits[i]` define el comienzo de un bloque: { marker, label, kind, desc }.
+  // El primer bloque (preámbulo) es lo que aparece antes del primer marker.
+  function splitByMarkers(text, splits, preamble) {
+    if (!text) return [];
+    const blocks = [];
+    let cursor = 0;
+    let lastLabel = preamble;
+    for (let i = 0; i < splits.length; i++) {
+      const s = splits[i];
+      const idx = text.indexOf(s.marker, cursor);
+      if (idx === -1) continue;
+      // Bloque anterior va desde cursor hasta idx
+      if (idx > cursor) {
+        blocks.push({ ...lastLabel, content: text.slice(cursor, idx).trim() });
+      }
+      cursor = idx;
+      lastLabel = s;
+    }
+    if (cursor < text.length) {
+      blocks.push({ ...lastLabel, content: text.slice(cursor).trim() });
+    }
+    return blocks.filter(b => b.content && b.content.length > 0);
+  }
+
+  function renderSection(block, opts = {}) {
+    const sty = kindStyles(block.kind);
+    const maxH = opts.maxH || '24rem';
+    const open = opts.open ? 'open' : '';
+    return `
+      <details ${open} class="rounded-md ${sty.bg} border ${sty.bd}">
+        <summary class="cursor-pointer px-3 py-2 flex items-center gap-2 hover:bg-ink-900/40">
+          <span class="px-1.5 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider ${sty.tag}">${sty.label}</span>
+          <span class="font-medium text-slate-200 text-sm">${escapeHtml(block.label)}</span>
+          <span class="text-xs text-slate-500 ml-auto">${block.content.length} chars</span>
+        </summary>
+        ${block.desc ? `<div class="px-3 pt-1 pb-2 text-xs text-slate-400 italic border-t border-ink-700/40">${escapeHtml(block.desc)}</div>` : ''}
+        <pre class="px-3 py-2 text-xs font-mono text-slate-200 whitespace-pre-wrap overflow-y-auto border-t border-ink-700/40" style="max-height:${maxH}">${escapeHtml(block.content)}</pre>
+      </details>`;
+  }
+
+  function renderStructuredPrompt(rootLabel, fullText, blocks) {
+    if (!fullText) return '';
+    const counts = blocks.reduce((acc, b) => { acc[b.kind] = (acc[b.kind] || 0) + b.content.length; return acc; }, {});
+    const summary = Object.entries(counts)
+      .map(([k, n]) => {
+        const s = kindStyles(k);
+        return `<span class="px-1.5 py-0.5 rounded text-[10px] font-mono ${s.tag}">${s.label} ${n}</span>`;
+      })
+      .join(' ');
+    return `
+      <details class="rounded-md bg-ink-900 border border-ink-700">
+        <summary class="cursor-pointer px-3 py-2 hover:bg-ink-800/40">
+          <span class="text-xs uppercase tracking-wider text-slate-300 font-semibold">${escapeHtml(rootLabel)}</span>
+          <span class="text-slate-500 text-xs ml-2">(${fullText.length} chars)</span>
+          <span class="ml-3">${summary}</span>
+        </summary>
+        <div class="px-3 py-3 space-y-2 border-t border-ink-700/40">
+          ${blocks.map(b => renderSection(b)).join('')}
+        </div>
+      </details>`;
+  }
+
+  // Descomposiciones específicas para los prompts del proyecto
+
+  const RAG_SYSTEM_SPLITS = [
+    { marker: 'OUTPUT RULES — ABSOLUTE:', label: 'Output rules', kind: 'static', desc: 'Restricciones duras: JSON only, ID válido, quote verbatim, compatibilidad táctica.' },
+    { marker: 'CONFIDENCE SCALE — use exactly these four values:', label: 'Confidence scale', kind: 'static', desc: 'Escala discreta 1.00 / 0.75 / 0.50 / 0.25 — evita números continuos inventados.' },
+    { marker: 'JSON OUTPUT SCHEMA:', label: 'JSON output schema', kind: 'static', desc: 'Estructura exacta de la respuesta. Reasoning va PRIMERO como scratchpad.' },
+    { marker: 'CRITICAL:', label: 'Two-step protocol', kind: 'static', desc: 'Protocolo anti-alucinación: rellena reasoning antes y evidence_quote antes que technique_id.' },
+  ];
+
+  const RAG_USER_SPLITS = [
+    { marker: 'EXAMPLES — study these before extracting:', label: 'Few-shot examples', kind: 'static', desc: '3 ejemplos canónicos: explicit mapping (1.00), implied mapping (0.75), null mapping (rechazo).' },
+    { marker: 'ALLOWED_CANDIDATES (use ONLY these IDs):', label: 'ALLOWED_CANDIDATES (retrieval)', kind: 'rag', desc: 'Inyectado desde ChromaDB + tool_lookup. Solo se permite mapear a IDs de esta lista. Esta es la pieza RAG.' },
+    { marker: 'TACTIC-TECHNIQUE COMPATIBILITY — mandatory rules:', label: 'Tactic-technique rules', kind: 'static', desc: 'Reglas duras para evitar pares incompatibles (T1486 solo en TA0040, T1003 solo en TA0006, etc.).' },
+    { marker: 'RANSOMWARE DEPLOYMENT RULES — apply always:', label: 'Ransomware deployment rules', kind: 'static', desc: 'Si el artículo nombra familia y describe cifrado → T1486 obligatorio. Reglas específicas del dominio.' },
+    { marker: 'ARTICLE TO ANALYZE:', label: 'ARTICLE (input del usuario)', kind: 'input', desc: 'Cuerpo del artículo enviado al pipeline. Truncado a MAX_BODY_CHARS=20000.' },
+    { marker: 'TASK:', label: 'Task instructions', kind: 'static', desc: 'Recordatorio final del protocolo de salida.' },
+  ];
+
+  function renderRagSystem(text) {
+    if (!text) return '';
+    const preamble = { label: 'Identidad y objetivo', kind: 'static', desc: 'Rol del modelo: extractor de TTPs MITRE para reportes de ransomware.' };
+    const blocks = splitByMarkers(text, RAG_SYSTEM_SPLITS, preamble);
+    return renderStructuredPrompt('System prompt — Qwen', text, blocks);
+  }
+
+  function renderRagUser(text) {
+    if (!text) return '';
+    const preamble = { label: 'Preámbulo', kind: 'static', desc: 'Texto introductorio.' };
+    const blocks = splitByMarkers(text, RAG_USER_SPLITS, preamble);
+    return renderStructuredPrompt('User prompt — Qwen', text, blocks);
+  }
+
+  // ── Judge v2 (Gemma 4) ──
+  const JUDGE_SYSTEM_PREAMBLE = { label: 'Rol del validador', kind: 'static', desc: 'Gemma actúa como validador estricto de anotaciones MITRE.' };
+  const JUDGE_SYSTEM_SPLITS = [
+    { marker: 'CRITICAL RULES', label: 'Critical rules (6)', kind: 'static', desc: 'Lista de motivos para rechazar: impacto sin mecanismo, inferencia por contexto, fase incorrecta, mención genérica, etc.' },
+    { marker: 'Your reasoning process (MANDATORY):', label: 'Mandatory reasoning protocol', kind: 'static', desc: '4 pasos forzados antes del veredicto. Evita rechazos/aceptaciones por intuición.' },
+    { marker: 'Only emit "accept"', label: 'Accept gate', kind: 'static', desc: 'Condición única de aceptación: evidencia explícita e inequívoca del mecanismo específico.' },
+  ];
+
+  // Cada user prompt del judge: TECHNIQUE + MITRE DEFINITION (RAG cache) + QUOTE (input)
+  function judgeUserSplits(promptText) {
+    const splits = [
+      { marker: 'TECHNIQUE:', label: 'Técnica a validar', kind: 'rag', desc: 'ID y nombre tomados del extractions.parsed_ttps.' },
+      { marker: 'MITRE DEFINITION:', label: 'MITRE definition (cache)', kind: 'rag', desc: 'Descripción oficial de la técnica, recuperada de data/mitre_attack_cache.json (835 técnicas, snapshot STIX).' },
+      { marker: 'QUOTE FROM ARTICLE:', label: 'Quote a evaluar', kind: 'input', desc: 'evidence_quote extraída por Qwen del artículo original. Esto es lo que Gemma valida.' },
+      { marker: 'Does this quote EXPLICITLY', label: 'Pregunta de cierre', kind: 'static', desc: 'Disparador del 4-step reasoning + veredicto.' },
+    ];
+    return splits;
+  }
+
+  function renderJudgeSystem(text) {
+    if (!text) return '';
+    const blocks = splitByMarkers(text, JUDGE_SYSTEM_SPLITS, JUDGE_SYSTEM_PREAMBLE);
+    return renderStructuredPrompt('System prompt — Gemma 4', text, blocks);
+  }
+
+  function renderJudgeUser(text, idx) {
+    if (!text) return '';
+    const preamble = { label: 'Cabecera', kind: 'static', desc: 'Instrucción de evaluación.' };
+    const blocks = splitByMarkers(text, judgeUserSplits(text), preamble);
+    return renderStructuredPrompt(`Prompt TTP #${idx + 1} — Gemma 4`, text, blocks);
+  }
+
+  function renderEvent(ev) {
+    const stage = ev.stage;
+    const p = ev.payload || {};
+
+    if (ev.event_type === 'start') {
+      stageStartTs[stage] = Date.now();
+      if (stage === 'pipeline') {
+        setStageState('pipeline', 'running', 'en curso');
+        return;
+      }
+      setStageState(stage, 'running', 'en curso');
+
+      if (stage === 'prefilter') {
+        setStageBody('prefilter', `<p class="text-slate-400 text-sm">Analizando longitud, IoCs y similitud contra MITRE ATT&CK…</p>`);
+      } else if (stage === 'rag_extract') {
+        const cands = (p.retrieved_candidates || []).map(c =>
+          `<tr class="border-b border-ink-700/40 last:border-0">
+             <td class="py-1 pr-3 font-mono text-cyan-300">${escapeHtml(c.technique_id)}</td>
+             <td class="py-1 pr-3 text-slate-300">${escapeHtml(c.name || '')}</td>
+             <td class="py-1 pr-3 font-mono text-slate-400">${(c.similarity ?? 0).toFixed(3)}</td>
+             <td class="py-1 text-xs ${c.source === 'tool_lookup' ? 'text-emerald-300' : 'text-slate-400'}">${escapeHtml(c.source || '')}</td>
+           </tr>`).join('');
+        setStageBody('rag_extract', `
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div><span class="text-slate-500">model</span><div class="font-mono text-slate-200">${escapeHtml(p.model || '')}</div></div>
+            <div><span class="text-slate-500">num_ctx</span><div class="font-mono text-slate-200">${p.num_ctx || ''}</div></div>
+            <div><span class="text-slate-500">num_predict</span><div class="font-mono text-slate-200">${p.num_predict || ''}</div></div>
+            <div><span class="text-slate-500">repeat_penalty</span><div class="font-mono text-slate-200">${p.repeat_penalty || ''}</div></div>
+          </div>
+          ${cands ? `
+          <div>
+            <h4 class="text-xs uppercase tracking-wider text-slate-400 mb-2">Candidatos recuperados (${(p.retrieved_candidates || []).length})</h4>
+            <table class="w-full text-sm"><thead><tr class="text-xs uppercase text-slate-500 border-b border-ink-700">
+              <th class="py-1 text-left">ID</th><th class="text-left">Nombre</th><th class="text-left">Sim.</th><th class="text-left">Origen</th>
+            </tr></thead><tbody>${cands}</tbody></table>
+          </div>` : ''}
+          ${renderRagSystem(p.system_prompt)}
+          ${renderRagUser(p.user_prompt)}
+          <p class="text-xs text-slate-500 italic">Esperando respuesta de Qwen…</p>
+        `);
+      } else if (stage === 'judge_v2') {
+        const ttpList = (p.per_ttp_prompts || []).map((pr, i) =>
+          renderJudgeUser(pr, i)).join('');
+        setStageBody('judge_v2', `
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+            <div><span class="text-slate-500">model</span><div class="font-mono text-slate-200">${escapeHtml(p.model || '')}</div></div>
+            <div><span class="text-slate-500">TTPs a juzgar</span><div class="font-mono text-slate-200">${p.ttp_count || 0}</div></div>
+            <div class="col-span-3 sm:col-span-1"><span class="text-slate-500">endpoint</span><div class="font-mono text-slate-200 text-xs truncate" title="${escapeHtml(p.endpoint || '')}">${escapeHtml((p.endpoint || '').replace('https://generativelanguage.googleapis.com', '…'))}</div></div>
+          </div>
+          ${renderJudgeSystem(p.system_prompt)}
+          ${ttpList}
+          <p class="text-xs text-slate-500 italic">Esperando veredictos…</p>
+        `);
+      }
+      return;
+    }
+
+    if (ev.event_type === 'end') {
+      const elapsed = p.elapsed_seconds;
+      const card = $(`#stage-${stage}`);
+      if (elapsed != null && card) {
+        $('.stage-elapsed', card).textContent = fmtDuration(elapsed);
+      }
+
+      if (stage === 'prefilter') {
+        const passed = p.passed === true;
+        setStageState('prefilter', passed ? 'ok' : 'filtered', passed ? 'pass' : 'filtered');
+        setStageBody('prefilter', `
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div><span class="text-xs text-slate-500">word_count</span><div class="font-mono text-slate-100">${p.word_count ?? '—'}</div></div>
+            <div><span class="text-xs text-slate-500">max cosine sim.</span><div class="font-mono ${p.max_cosine_similarity >= 0.55 ? 'text-emerald-300' : 'text-amber-300'}">${(p.max_cosine_similarity ?? 0).toFixed(3)}</div></div>
+            <div><span class="text-xs text-slate-500">IoCs</span><div class="font-mono text-slate-100">${(p.ioc_hits || []).length}</div></div>
+            <div><span class="text-xs text-slate-500">ATT&CK terms</span><div class="font-mono text-slate-100">${(p.attack_terms_hit || []).length}</div></div>
+          </div>
+          ${(p.ioc_hits && p.ioc_hits.length) ? `<div><h4 class="text-xs uppercase tracking-wider text-slate-400 mb-1">IoCs detectados</h4><div class="flex flex-wrap gap-1">${p.ioc_hits.map(i => `<span class="px-2 py-0.5 rounded bg-ink-700 text-xs font-mono text-emerald-300">${escapeHtml(i)}</span>`).join('')}</div></div>` : ''}
+          ${(p.attack_terms_hit && p.attack_terms_hit.length) ? `<div><h4 class="text-xs uppercase tracking-wider text-slate-400 mb-1">Términos ATT&CK</h4><div class="flex flex-wrap gap-1">${p.attack_terms_hit.map(t => `<span class="px-2 py-0.5 rounded bg-ink-700 text-xs font-mono text-cyan-300">${escapeHtml(t)}</span>`).join('')}</div></div>` : ''}
+          ${p.reason ? `<p class="text-sm ${passed ? 'text-slate-300' : 'text-amber-300'}"><span class="text-slate-500">razón:</span> <span class="font-mono">${escapeHtml(p.reason)}</span></p>` : ''}
+        `);
+      } else if (stage === 'rag_extract') {
+        setStageState('rag_extract', 'ok', `${p.valid_ttp_count ?? 0} TTPs`);
+        const ttpsRows = (p.parsed_ttps || []).map(t => `
+          <tr class="border-b border-ink-700/40 last:border-0 align-top">
+            <td class="py-1.5 pr-3 font-mono text-cyan-300">${escapeHtml(t.technique_id || '')}</td>
+            <td class="py-1.5 pr-3 font-mono text-slate-400">${escapeHtml(t.tactic_id || '')}</td>
+            <td class="py-1.5 pr-3 font-mono text-slate-400">${(t.confidence ?? 0).toFixed(2)}</td>
+            <td class="py-1.5 text-slate-300 italic">"${escapeHtml((t.evidence_quote || '').substring(0, 200))}${(t.evidence_quote || '').length > 200 ? '…' : ''}"</td>
+          </tr>`).join('');
+        const body = $('#stage-rag_extract .stage-body');
+        body.innerHTML = body.innerHTML.replace(/<p class="text-xs text-slate-500 italic">Esperando respuesta de Qwen…<\/p>\s*$/, '') +
+          `
+          <div class="border-t border-ink-700 pt-3">
+            <h4 class="text-xs uppercase tracking-wider text-slate-400 mb-2">TTPs extraídos (${(p.parsed_ttps || []).length}, válidos ${p.valid_ttp_count ?? 0})</h4>
+            ${ttpsRows ? `<table class="w-full text-sm"><thead><tr class="text-xs uppercase text-slate-500 border-b border-ink-700">
+              <th class="py-1 text-left">ID</th><th class="text-left">Táctica</th><th class="text-left">Conf.</th><th class="text-left">Quote</th>
+            </tr></thead><tbody>${ttpsRows}</tbody></table>` : '<p class="text-slate-500 text-sm">Sin TTPs extraídos.</p>'}
+            ${(p.validation_issues && p.validation_issues.length) ? `<p class="mt-2 text-xs text-amber-300">⚠ ${p.validation_issues.length} validation issue(s): ${escapeHtml(p.validation_issues.slice(0, 3).join('; '))}</p>` : ''}
+          </div>
+          ${renderPrompt('Reasoning / scratchpad', p.reasoning)}
+          ${renderPrompt('Raw response (Ollama)', p.raw_response)}`;
+      } else if (stage === 'judge_v2') {
+        setStageState('judge_v2', 'ok', `${p.accept_count ?? 0}/${(p.accept_count || 0) + (p.reject_count || 0)} accept`);
+        const rows = (p.verdicts || []).map(v => `
+          <tr class="border-b border-ink-700/40 last:border-0 align-top">
+            <td class="py-1.5 pr-3 font-mono text-cyan-300">${escapeHtml(v.technique_id || '')}</td>
+            <td class="py-1.5 pr-3">
+              <span class="px-2 py-0.5 rounded text-xs font-medium ${v.verdict === 'accept' ? 'bg-emerald-500/15 text-emerald-300' : v.verdict === 'reject' ? 'bg-rose-500/15 text-rose-300' : 'bg-slate-700 text-slate-300'}">${escapeHtml(v.verdict || '')}</span>
+            </td>
+            <td class="py-1.5 text-slate-300 text-sm">${escapeHtml(v.reasoning || '')}</td>
+          </tr>`).join('');
+        const body = $('#stage-judge_v2 .stage-body');
+        body.innerHTML = body.innerHTML.replace(/<p class="text-xs text-slate-500 italic">Esperando veredictos…<\/p>\s*$/, '') +
+          `
+          <div class="border-t border-ink-700 pt-3">
+            <h4 class="text-xs uppercase tracking-wider text-slate-400 mb-2">Veredictos</h4>
+            ${rows ? `<table class="w-full text-sm"><thead><tr class="text-xs uppercase text-slate-500 border-b border-ink-700">
+              <th class="py-1 text-left">TTP</th><th class="text-left">Veredicto</th><th class="text-left">Razonamiento</th>
+            </tr></thead><tbody>${rows}</tbody></table>` : '<p class="text-slate-500 text-sm">Sin veredictos.</p>'}
+          </div>`;
+      } else if (stage === 'pipeline') {
+        const fs = p.final_state || 'completed';
+        const cls = fs === 'completed' ? 'ok' : fs === 'filtered' ? 'filtered' : 'error';
+        setStageState('pipeline', cls, fs);
+        const summary = p.summary || {};
+        setStageBody('pipeline', `
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div><span class="text-xs text-slate-500">estado final</span><div class="font-mono ${cls === 'ok' ? 'text-emerald-300' : cls === 'filtered' ? 'text-amber-300' : 'text-rose-300'}">${escapeHtml(fs)}</div></div>
+            <div><span class="text-xs text-slate-500">pasa pre-filtro</span><div class="font-mono text-slate-100">${summary.prefilter_passed === true ? 'sí' : summary.prefilter_passed === false ? 'no' : '—'}</div></div>
+            <div><span class="text-xs text-slate-500">extraídos</span><div class="font-mono text-slate-100">${summary.extracted ?? '—'}</div></div>
+            <div><span class="text-xs text-slate-500">aceptados</span><div class="font-mono text-slate-100">${summary.accepted ?? '—'}</div></div>
+          </div>
+        `);
+        $('#exec-status').textContent = fs;
+        $('#exec-status').className = `text-xs px-3 py-1 rounded-md ${cls === 'ok' ? 'bg-emerald-500/15 text-emerald-300' : cls === 'filtered' ? 'bg-amber-500/15 text-amber-300' : 'bg-rose-500/15 text-rose-300'}`;
+        stopWatching();
+      }
+      return;
+    }
+
+    if (ev.event_type === 'error') {
+      setStageState(stage, 'error', 'error');
+      setStageBody(stage, `
+        <p class="text-rose-300 font-medium">${escapeHtml(p.message || 'Error')}</p>
+        ${p.traceback ? `<details class="rounded-md bg-ink-900 border border-rose-500/30">
+          <summary class="cursor-pointer px-3 py-2 text-xs uppercase tracking-wider text-rose-300">Traceback</summary>
+          <pre class="px-3 py-2 text-xs font-mono text-rose-200 whitespace-pre-wrap max-h-96 overflow-y-auto border-t border-rose-500/30">${escapeHtml(p.traceback)}</pre>
+        </details>` : ''}
+      `);
+    }
+  }
+
+  async function poll() {
+    if (!currentJobId) return;
+    try {
+      const r = await fetch(`/api/demo/jobs/${currentJobId}/events?after_id=${lastEventId}`);
+      const d = await r.json();
+      let sawEnd = false;
+      (d.events || []).forEach(ev => {
+        lastEventId = Math.max(lastEventId, ev.id);
+        renderEvent(ev);
+        if (ev.stage === 'pipeline' && ev.event_type === 'end') sawEnd = true;
+      });
+      if (d.status && d.status !== 'queued' && d.status !== 'running') {
+        // Fix bug polling (auditoría 2026-05-19): si el status es terminal pero
+        // pipeline.end no llegó en los events de este tick (race con el thread
+        // del judge v2 que lo emite asincrónicamente), forzar el badge visual
+        // igual que el cinturón de openJob(). Sin esto, "Resultado: en curso"
+        // se quedaba colgado intermitentemente.
+        if (!sawEnd) {
+          const cls = d.status === 'completed' ? 'ok'
+                    : d.status === 'filtered' ? 'filtered'
+                    : 'error';
+          setStageState('pipeline', cls, d.status);
+          $('#exec-status').textContent = d.status;
+          $('#exec-status').className = `text-xs px-3 py-1 rounded-md ${
+            cls === 'ok' ? 'bg-emerald-500/15 text-emerald-300'
+            : cls === 'filtered' ? 'bg-amber-500/15 text-amber-300'
+            : 'bg-rose-500/15 text-rose-300'}`;
+        }
+        stopWatching();
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  function startWatching(jobId) {
+    stopWatching();
+    currentJobId = jobId;
+    lastEventId = 0;
+    resetTimeline();
+    $('#exec-status').textContent = `job #${jobId} · en cola`;
+    $('#exec-status').className = 'text-xs px-3 py-1 rounded-md bg-cyan-500/15 text-cyan-300';
+    pollTimer = setInterval(poll, 1000);
+    poll();
+  }
+
+  function stopWatching() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  // ── Stage toggle ──────────────────────────────────────────
+  $$('.stage-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.stage-card');
+      const body = $('.stage-body', card);
+      const chev = $('.chevron', card);
+      const hidden = body.classList.toggle('hidden');
+      chev.textContent = hidden ? '▾' : '▴';
+    });
+  });
+
+  // ── Historial ─────────────────────────────────────────────
+  async function refreshHistory() {
+    try {
+      const r = await fetch('/api/demo/jobs?limit=30');
+      const d = await r.json();
+      const list = $('#history-list');
+      if (!d.jobs || d.jobs.length === 0) {
+        list.innerHTML = '<li class="text-slate-500 text-sm">Sin ejecuciones aún.</li>';
+        return;
+      }
+      list.innerHTML = d.jobs.map(j => {
+        const cls = j.status === 'completed' ? 'bg-emerald-500/15 text-emerald-300'
+          : j.status === 'filtered' ? 'bg-amber-500/15 text-amber-300'
+          : j.status === 'failed' ? 'bg-rose-500/15 text-rose-300'
+          : j.status === 'running' ? 'bg-cyan-500/15 text-cyan-300'
+          : 'bg-slate-700/60 text-slate-300';
+        return `
+        <li>
+          <button class="history-item w-full text-left px-3 py-2 rounded-md hover:bg-ink-700/40 transition" data-id="${j.id}">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-mono text-xs text-slate-400">#${j.id}</span>
+              <span class="px-1.5 py-0.5 rounded text-xs ${cls}">${escapeHtml(j.status)}</span>
+            </div>
+            <div class="mt-0.5 text-sm text-slate-200 line-clamp-1">${escapeHtml(j.title || (j.input_type === 'paste' ? '(texto pegado)' : '(sin título)'))}</div>
+            <div class="text-xs text-slate-500 font-mono">${escapeHtml(j.created_at || '')}</div>
+          </button>
+        </li>`;
+      }).join('');
+      $$('.history-item', list).forEach(it => {
+        it.addEventListener('click', () => loadJob(parseInt(it.dataset.id, 10)));
+      });
+    } catch (e) { /* silent */ }
+  }
+
+  async function loadJob(jobId) {
+    stopWatching();
+    resetTimeline();
+    currentJobId = jobId;
+    lastEventId = 0;
+    try {
+      const r = await fetch(`/api/demo/jobs/${jobId}`);
+      const d = await r.json();
+      if (!d.job) return;
+      $('#exec-status').textContent = `job #${jobId} · ${d.job.status}`;
+      let sawPipelineEnd = false;
+      (d.events || []).forEach(ev => {
+        lastEventId = Math.max(lastEventId, ev.id);
+        renderEvent(ev);
+        if (ev.stage === 'pipeline' && ev.event_type === 'end') sawPipelineEnd = true;
+      });
+
+      const status = d.job.status;
+      const isTerminal = (status === 'completed' || status === 'filtered'
+                         || status === 'failed' || status === 'aborted');
+
+      if (isTerminal) {
+        // Cinturón: si el job está cerrado en BD pero por algún motivo no se
+        // procesó un pipeline.end durante el replay (worker abortó, transacción
+        // parcial, etc.), fuerza el estado terminal en la timeline para que el
+        // badge "en curso" no se quede colgado.
+        if (!sawPipelineEnd) {
+          const cls = status === 'completed' ? 'ok'
+                    : status === 'filtered' ? 'filtered'
+                    : 'error';
+          setStageState('pipeline', cls, status);
+          $('#exec-status').textContent = status;
+          $('#exec-status').className = `text-xs px-3 py-1 rounded-md ${
+            cls === 'ok' ? 'bg-emerald-500/15 text-emerald-300'
+            : cls === 'filtered' ? 'bg-amber-500/15 text-amber-300'
+            : 'bg-rose-500/15 text-rose-300'}`;
+        }
+        return;
+      }
+
+      // running / queued: arrancar polling con tick inmediato (evita ventana
+      // de 1s donde pipeline.end ya está en BD pero aún no se ha leído).
+      pollTimer = setInterval(poll, 1000);
+      poll();
+    } catch (e) { /* silent */ }
+  }
+
+  $('#refresh-history').addEventListener('click', refreshHistory);
+  refreshHistory();
+  setInterval(refreshHistory, 5000);
+
+  // ── Replay estático por deep-link: /pipeline?replay=<job_id> ──────────────
+  // Reproduce un job ya completado desde la BD (demo_events), sin requerir el
+  // PC ni el heartbeat. Reutiliza loadJob(), que es el mecanismo de replay ya
+  // existente del historial. Útil para la defensa con el PC apagado.
+  const REPLAY_JOB_ID = {{ (replay_job_id if replay_job_id is defined else None) | tojson }};
+  if (REPLAY_JOB_ID != null) {
+    const banner = document.createElement('div');
+    banner.id = 'replay-banner';
+    banner.className = 'mb-4 rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-amber-200 text-sm';
+    banner.innerHTML = '⏪ <strong>Modo replay</strong> — reproduciendo el job #'
+      + REPLAY_JOB_ID + ' desde la base de datos (no requiere el PC). '
+      + '<a href="/pipeline" class="underline hover:text-amber-100">Volver al modo en vivo</a>';
+    const anchor = document.querySelector('#stage-prefilter');
+    const list = anchor ? anchor.closest('ul,ol') : null;
+    if (list && list.parentElement) {
+      list.parentElement.insertBefore(banner, list);
+    } else {
+      document.body.prepend(banner);
+    }
+    loadJob(REPLAY_JOB_ID);
+  }
+})();
+</script>
+{% endblock %}

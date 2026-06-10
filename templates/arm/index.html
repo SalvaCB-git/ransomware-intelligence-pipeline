@@ -1,0 +1,516 @@
+{% extends "base.html" %}
+{% block title %}Co-ocurrencia / ARM · TFG{% endblock %}
+
+{% block content %}
+
+<section class="mb-10">
+  <div class="flex items-baseline gap-3 mb-2">
+    <span class="text-xs uppercase tracking-[0.2em] text-cyan-300/80 font-semibold">Co-ocurrencia · grafo de ataque</span>
+    <span class="h-px flex-1 bg-gradient-to-r from-cyan-400/40 to-transparent"></span>
+  </div>
+  <h1 class="text-3xl sm:text-4xl font-semibold leading-tight text-white">
+    ¿Qué técnicas viajan juntas en el kill chain?
+  </h1>
+  <p class="mt-3 max-w-3xl text-slate-400">
+    Análisis de reglas de asociación (Apriori clásico + Fisher's exact + corrección Benjamini-Hochberg) y
+    métricas de centralidad sobre el grafo de co-ocurrencia. 1.060 artículos como transacciones,
+    305 técnicas como ítems.
+  </p>
+</section>
+
+{# ── Findings strip ── #}
+<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-12">
+  <article class="rounded-xl border border-rose-400/20 bg-gradient-to-br from-rose-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-rose-300/80 font-semibold mb-1">Hallazgo · cuello de botella</div>
+    <div class="font-mono text-rose-100 text-lg">T1003 — OS Credential Dumping</div>
+    <div class="mt-1 text-xs text-slate-400">Betweenness más alto del grafo excisado: <span class="font-mono text-rose-300">0.237</span>. Bloquearlo desconecta la ruta principal del kill chain.</div>
+  </article>
+  <article class="rounded-xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80 font-semibold mb-1">Regla BH-significativa #1</div>
+    <div class="font-mono text-cyan-100 text-base">T1490 → T1486</div>
+    <div class="mt-1 text-xs text-slate-400">Inhibit System Recovery → Data Encrypted. <span class="font-mono">conf=56.6%</span>, <span class="font-mono">lift=2.06</span>, <span class="font-mono">p≈5e-6</span>.</div>
+  </article>
+  <article class="rounded-xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-emerald-300/80 font-semibold mb-1">Regla BH-significativa #2</div>
+    <div class="font-mono text-emerald-100 text-base">T1047 → T1486</div>
+    <div class="mt-1 text-xs text-slate-400">WMI → Data Encrypted. <span class="font-mono">conf=50%</span>, <span class="font-mono">lift=1.82</span>, <span class="font-mono">p=0.019</span>.</div>
+  </article>
+  <article class="rounded-xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-amber-300/80 font-semibold mb-1">Hallazgo metodológico</div>
+    <div class="font-mono text-amber-100 text-base">T1486 dominante (27.5%)</div>
+    <div class="mt-1 text-xs text-slate-400">Aparece en 1 de cada 4 artículos: dilúe el lift de la mayoría de co-ocurrencias. Solo lo que co-ocurre <em>significativamente más de lo esperado</em> sobrevive.</div>
+  </article>
+</section>
+
+{# ── 1. Grafo D3 ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <header class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+    <h2 class="text-lg font-semibold text-white">Grafo de co-ocurrencias · interactivo</h2>
+    <span class="text-[11px] font-mono text-slate-500">force-directed · D3.js · Jaccard como peso</span>
+  </header>
+  <p class="text-sm text-slate-400 mb-4">
+    Nodos = técnicas (color por táctica · tamaño por <em>degree</em>). Aristas = co-ocurrencia
+    (grosor por Jaccard). Arrastra para reorganizar, rueda para zoom, click en nodo para detalles.
+  </p>
+
+  <div class="flex flex-wrap items-center gap-3 mb-4">
+    <label class="flex items-center gap-2 text-[12px] text-slate-300">
+      <span class="text-[11px] uppercase tracking-wider text-slate-500">Min co-ocurrencias</span>
+      <input type="range" id="g-min-count" min="1" max="10" value="2"
+             class="w-32 accent-cyan-400">
+      <span id="g-min-count-val" class="font-mono text-cyan-300 w-6 text-center">2</span>
+    </label>
+    <label class="flex items-center gap-2 text-[12px] text-slate-300 ml-2 select-none">
+      <input type="checkbox" id="g-excise" class="accent-cyan-400">
+      <span>Excisar <span class="font-mono text-cyan-300">T1486</span></span>
+    </label>
+    <button type="button" id="g-reset"
+            class="ml-auto text-[11px] font-mono uppercase tracking-wider px-3 py-1.5 rounded-md border border-ink-600 text-slate-400 hover:border-cyan-400 hover:text-cyan-300 transition">
+      Reset zoom
+    </button>
+    <span id="g-stats" class="text-[11px] font-mono text-slate-500"></span>
+  </div>
+
+  <div class="grid lg:grid-cols-[1fr_300px] gap-4">
+    <div class="rounded-lg bg-black/40 border border-ink-700 overflow-hidden relative" style="height: 600px;">
+      <svg id="graph-svg" class="w-full h-full"></svg>
+      <div id="graph-tooltip"
+           class="absolute hidden pointer-events-none px-2.5 py-1.5 rounded-md bg-ink-900/95 border border-cyan-400/40 text-[11px] font-mono text-slate-100 shadow-2xl">
+      </div>
+    </div>
+    <aside id="g-side"
+           class="rounded-lg border border-ink-700 bg-ink-900/40 p-4 text-sm h-fit max-h-[600px] overflow-y-auto">
+      <div class="text-[11px] uppercase tracking-[0.18em] text-slate-500 mb-2">Detalle</div>
+      <p class="text-slate-400 text-[12px] leading-relaxed">
+        Click en un nodo para ver sus métricas de centralidad y vecinos directos.
+      </p>
+      <div class="mt-4">
+        <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Leyenda · tácticas</div>
+        <div id="g-legend" class="grid grid-cols-1 gap-1 text-[11px]"></div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+{# ── 2. Top centralidad ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <header class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+    <h2 class="text-lg font-semibold text-white">Top centralidad · cuellos de botella del grafo</h2>
+    <span class="text-[11px] font-mono text-slate-500">graph_centrality.csv</span>
+  </header>
+  <div class="flex items-center gap-2 mt-2 mb-4">
+    <span class="text-[11px] uppercase tracking-wider text-slate-500">Modo:</span>
+    <label class="text-[12px] text-slate-300 cursor-pointer">
+      <input type="radio" name="cent-mode" value="full" checked class="mr-1 accent-cyan-400">grafo completo
+    </label>
+    <label class="text-[12px] text-slate-300 cursor-pointer">
+      <input type="radio" name="cent-mode" value="excised" class="mr-1 accent-cyan-400">excisado (sin T1486)
+    </label>
+  </div>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div class="rounded-lg border border-ink-700 bg-ink-900/40 p-4">
+      <div class="text-[10px] uppercase tracking-[0.16em] text-rose-300/80 font-semibold mb-2">Top 10 por betweenness</div>
+      <div id="cent-betweenness" class="space-y-1 text-[12px] font-mono"></div>
+    </div>
+    <div class="rounded-lg border border-ink-700 bg-ink-900/40 p-4">
+      <div class="text-[10px] uppercase tracking-[0.16em] text-cyan-300/80 font-semibold mb-2">Top 10 por PageRank</div>
+      <div id="cent-pagerank" class="space-y-1 text-[12px] font-mono"></div>
+    </div>
+    <div class="rounded-lg border border-ink-700 bg-ink-900/40 p-4">
+      <div class="text-[10px] uppercase tracking-[0.16em] text-emerald-300/80 font-semibold mb-2">Top 10 por degree (Jaccard)</div>
+      <div id="cent-degree" class="space-y-1 text-[12px] font-mono"></div>
+    </div>
+  </div>
+  <p class="text-[11px] text-slate-500 mt-4 leading-relaxed">
+    <span class="text-slate-300">Interpretación defensiva</span>: betweenness identifica <em>cuellos de botella del kill chain</em>
+    (técnicas que están en muchos caminos cortos entre otros pares). T1003 ocupa la primera posición tras excisar T1486
+    — bloquearlo desconecta la ruta principal del grafo de ataque.
+  </p>
+</section>
+
+{# ── 3. Reglas ARM ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <header class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+    <h2 class="text-lg font-semibold text-white">Reglas de asociación · BH-significativas</h2>
+    <span class="text-[11px] font-mono text-slate-500">arm_rules.csv</span>
+  </header>
+  <p class="text-sm text-slate-400 mb-4">
+    Umbrales: <span class="font-mono">support ≥ 1%</span>, <span class="font-mono">confidence ≥ 40%</span>,
+    <span class="font-mono">lift &gt; 1.2</span>, <span class="font-mono">BH-FDR α=0.05</span>.
+    Solo dos reglas pasan al ser T1486 dominante.
+  </p>
+  <div class="overflow-x-auto">
+    <table class="w-full text-[12px]">
+      <thead>
+        <tr class="text-[10px] uppercase tracking-[0.16em] text-slate-500 border-b border-ink-700">
+          <th class="text-left py-2 pr-3 font-medium">Regla</th>
+          <th class="text-left py-2 pr-3 font-medium">Tácticas</th>
+          <th class="text-right py-2 pr-3 font-medium">Support</th>
+          <th class="text-right py-2 pr-3 font-medium">Confidence</th>
+          <th class="text-right py-2 pr-3 font-medium">Lift</th>
+          <th class="text-right py-2 pr-3 font-medium">Jaccard</th>
+          <th class="text-right py-2 pr-3 font-medium">Fisher p</th>
+          <th class="text-right py-2 pr-3 font-medium">N</th>
+          <th class="text-left py-2 pr-3 font-medium">Dirección</th>
+        </tr>
+      </thead>
+      <tbody id="rules-tbody" class="divide-y divide-ink-700/50"></tbody>
+    </table>
+  </div>
+</section>
+
+{# ── 4. Resumen tactic-pair ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-12">
+  <header class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+    <h2 class="text-lg font-semibold text-white">Reglas top por par de táctica</h2>
+    <span class="text-[11px] font-mono text-slate-500">top_rules_by_tactic_pair.csv</span>
+  </header>
+  <p class="text-sm text-slate-400 mb-4">Vista del kill chain: la mejor regla entre cada par origen→destino de tácticas.</p>
+  <div id="tactic-pairs"></div>
+</section>
+
+<section class="text-xs text-slate-500 mb-12">
+  Datos generados por <span class="font-mono text-slate-400">cooccurrence_analysis.py</span>.
+</section>
+
+<script>
+// ── Paleta de tácticas ────────────────────────────────────────────────────────
+const TACTIC_INFO = {
+  TA0001: { name: 'Initial Access',     color: '#fbbf24' },
+  TA0002: { name: 'Execution',          color: '#60a5fa' },
+  TA0003: { name: 'Persistence',        color: '#a3e635' },
+  TA0004: { name: 'Privilege Escalation', color: '#f87171' },
+  TA0005: { name: 'Defense Evasion',    color: '#a78bfa' },
+  TA0006: { name: 'Credential Access',  color: '#34d399' },
+  TA0007: { name: 'Discovery',          color: '#2dd4bf' },
+  TA0008: { name: 'Lateral Movement',   color: '#fb923c' },
+  TA0009: { name: 'Collection',         color: '#facc15' },
+  TA0010: { name: 'Exfiltration',       color: '#818cf8' },
+  TA0011: { name: 'Command & Control',  color: '#fb7185' },
+  TA0040: { name: 'Impact',             color: '#22d3ee' },
+  TA0042: { name: 'Resource Development', color: '#f472b6' },
+  TA0043: { name: 'Reconnaissance',     color: '#a8a29e' },
+};
+const TACTIC_DEFAULT = '#94a3b8';
+const tacticColor = (tid) => (TACTIC_INFO[tid] || {}).color || TACTIC_DEFAULT;
+const tacticName  = (tid) => (TACTIC_INFO[tid] || {}).name  || tid;
+
+function fmt3(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toFixed(3); }
+
+function waitForD3(cb) {
+  if (typeof d3 !== 'undefined') return cb();
+  setTimeout(() => waitForD3(cb), 50);
+}
+
+let DATA = null;
+
+waitForD3(() => {
+  fetch('/api/arm/data', { cache: 'no-store' })
+    .then(r => r.json())
+    .then(data => {
+      DATA = data;
+      renderLegend();
+      renderGraph();
+      renderCentrality('full');
+      renderRules(data.rules || []);
+      renderTacticPairs(data.tactic_pairs || []);
+    })
+    .catch(err => console.error('arm data error', err));
+});
+
+// ── Legend ───────────────────────────────────────────────────────────────────
+function renderLegend() {
+  const present = new Set((DATA.centrality || []).map(n => n.tactic_id).filter(Boolean));
+  const ordered = Object.keys(TACTIC_INFO).filter(t => present.has(t));
+  document.getElementById('g-legend').innerHTML = ordered.map(tid => `
+    <div class="flex items-center gap-2">
+      <span class="inline-block w-2.5 h-2.5 rounded-full" style="background:${tacticColor(tid)}"></span>
+      <span class="font-mono text-slate-400">${tid}</span>
+      <span class="text-slate-500 truncate">${tacticName(tid)}</span>
+    </div>`).join('');
+}
+
+// ── 1. Grafo D3 ──────────────────────────────────────────────────────────────
+let gSimulation = null, gZoom = null, gSvg = null, gG = null;
+
+function renderGraph() {
+  const svgEl = document.getElementById('graph-svg');
+  gSvg = d3.select(svgEl);
+  gSvg.selectAll('*').remove();
+
+  // Zoom container
+  gG = gSvg.append('g');
+
+  gZoom = d3.zoom()
+    .scaleExtent([0.2, 4])
+    .on('zoom', (ev) => gG.attr('transform', ev.transform));
+  gSvg.call(gZoom);
+
+  drawGraph();
+
+  // Bind controls
+  const minCount = document.getElementById('g-min-count');
+  const minVal = document.getElementById('g-min-count-val');
+  const excise = document.getElementById('g-excise');
+  const reset = document.getElementById('g-reset');
+
+  minCount.addEventListener('input', () => {
+    minVal.textContent = minCount.value;
+    drawGraph();
+  });
+  excise.addEventListener('change', drawGraph);
+  reset.addEventListener('click', () => {
+    gSvg.transition().duration(400).call(gZoom.transform, d3.zoomIdentity);
+  });
+}
+
+function drawGraph() {
+  const minCount = Number(document.getElementById('g-min-count').value);
+  const exciseT1486 = document.getElementById('g-excise').checked;
+
+  // Filtrar aristas
+  const allEdges = (DATA.edges || []);
+  let edges = allEdges
+    .filter(e => Number(e.count_both) >= minCount)
+    .filter(e => !exciseT1486 || (e.tech_a !== 'T1486' && e.tech_b !== 'T1486'))
+    .map(e => ({
+      source: e.tech_a, target: e.tech_b,
+      jaccard: Number(e.jaccard),
+      count: Number(e.count_both),
+    }));
+
+  // Nodos: solo los conectados por aristas filtradas
+  const present = new Set();
+  for (const e of edges) { present.add(e.source); present.add(e.target); }
+  const centMap = {};
+  for (const c of (DATA.centrality || [])) centMap[c.technique_id] = c;
+  const degreeKey = exciseT1486 ? 'excised_degree' : 'full_degree';
+  const nodes = [...present].map(id => {
+    const c = centMap[id] || {};
+    return {
+      id,
+      name: c.name || id,
+      tactic: c.tactic_id || null,
+      count: Number(c.count) || 0,
+      degree: Number(c[degreeKey]) || 0,
+    };
+  });
+
+  document.getElementById('g-stats').textContent = `${nodes.length} nodos · ${edges.length} aristas`;
+
+  const svgEl = document.getElementById('graph-svg');
+  const W = svgEl.clientWidth, H = svgEl.clientHeight;
+
+  gG.selectAll('*').remove();
+
+  // Tamaño del nodo: 4–18 según degree
+  const maxDeg = d3.max(nodes, n => n.degree) || 1;
+  const radius = (n) => 4 + (n.degree / maxDeg) * 14;
+
+  // Grosor de arista: 0.4–3 según jaccard
+  const maxJac = d3.max(edges, e => e.jaccard) || 1;
+  const stroke = (e) => 0.4 + (e.jaccard / maxJac) * 2.6;
+
+  // Sim
+  if (gSimulation) gSimulation.stop();
+  gSimulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(edges).id(d => d.id).distance(d => 50 + (1 - d.jaccard) * 60).strength(0.5))
+    .force('charge', d3.forceManyBody().strength(-180))
+    .force('center', d3.forceCenter(W / 2, H / 2))
+    .force('collide', d3.forceCollide().radius(d => radius(d) + 2))
+    .alphaDecay(0.05);
+
+  const linkSel = gG.append('g')
+    .attr('stroke', '#1e2a4d')
+    .attr('stroke-opacity', 0.55)
+    .selectAll('line')
+    .data(edges)
+    .join('line')
+    .attr('stroke-width', stroke);
+
+  const nodeSel = gG.append('g')
+    .selectAll('g')
+    .data(nodes, d => d.id)
+    .join('g')
+    .attr('class', 'cursor-pointer')
+    .call(drag(gSimulation))
+    .on('mouseenter', (ev, d) => showTooltip(ev, d))
+    .on('mousemove',  (ev, d) => moveTooltip(ev))
+    .on('mouseleave', hideTooltip)
+    .on('click', (ev, d) => selectNode(d));
+
+  nodeSel.append('circle')
+    .attr('r', radius)
+    .attr('fill', d => tacticColor(d.tactic))
+    .attr('fill-opacity', 0.85)
+    .attr('stroke', '#0b1020')
+    .attr('stroke-width', 1.2);
+
+  // Labels solo en nodos grandes (degree alto)
+  nodeSel.filter(d => d.degree >= maxDeg * 0.5)
+    .append('text')
+    .text(d => d.id)
+    .attr('font-size', 9)
+    .attr('font-family', 'JetBrains Mono, monospace')
+    .attr('fill', '#cbd5e1')
+    .attr('dx', d => radius(d) + 3)
+    .attr('dy', 3)
+    .attr('pointer-events', 'none');
+
+  gSimulation.on('tick', () => {
+    linkSel
+      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+
+  // Caché para sidebar (mapa adyacencia)
+  window._adj = {};
+  for (const e of edges) {
+    const sId = e.source.id || e.source, tId = e.target.id || e.target;
+    (window._adj[sId] = window._adj[sId] || []).push({ id: tId, jaccard: e.jaccard, count: e.count });
+    (window._adj[tId] = window._adj[tId] || []).push({ id: sId, jaccard: e.jaccard, count: e.count });
+  }
+}
+
+function drag(sim) {
+  return d3.drag()
+    .on('start', (ev, d) => { if (!ev.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+    .on('drag',  (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+    .on('end',   (ev, d) => { if (!ev.active) sim.alphaTarget(0); d.fx = null; d.fy = null; });
+}
+
+function showTooltip(ev, d) {
+  const t = document.getElementById('graph-tooltip');
+  t.innerHTML = `<span class="text-cyan-300">${d.id}</span> · <span class="text-slate-300">${d.name}</span><br>
+    <span class="text-slate-500">${d.tactic || '—'}</span> · count=<span class="text-slate-300">${d.count}</span> · deg=<span class="text-slate-300">${d.degree.toFixed(2)}</span>`;
+  t.classList.remove('hidden');
+  moveTooltip(ev);
+}
+function moveTooltip(ev) {
+  const t = document.getElementById('graph-tooltip');
+  const svgRect = document.getElementById('graph-svg').getBoundingClientRect();
+  t.style.left = (ev.clientX - svgRect.left + 12) + 'px';
+  t.style.top  = (ev.clientY - svgRect.top + 12) + 'px';
+}
+function hideTooltip() { document.getElementById('graph-tooltip').classList.add('hidden'); }
+
+function selectNode(d) {
+  const cent = (DATA.centrality || []).find(c => c.technique_id === d.id) || {};
+  const adj = (window._adj[d.id] || []).sort((a, b) => b.jaccard - a.jaccard).slice(0, 8);
+  const exc = document.getElementById('g-excise').checked;
+  const k = exc ? 'excised_' : 'full_';
+  document.getElementById('g-side').innerHTML = `
+    <div class="text-[11px] uppercase tracking-[0.18em] text-slate-500 mb-2">Detalle de la técnica</div>
+    <div class="font-mono text-cyan-300 text-base">${d.id}</div>
+    <div class="text-slate-200 text-sm mt-0.5">${d.name}</div>
+    <div class="mt-1 text-[11px]">
+      <span class="inline-block w-2 h-2 rounded-full mr-1" style="background:${tacticColor(d.tactic)}"></span>
+      <span class="font-mono text-slate-400">${d.tactic || '—'}</span>
+      <span class="text-slate-500"> · ${tacticName(d.tactic)}</span>
+    </div>
+    <div class="grid grid-cols-2 gap-2 mt-4 text-[11px]">
+      <div class="rounded bg-ink-800/60 border border-ink-700 px-2 py-1.5">
+        <div class="text-slate-500 text-[10px] uppercase tracking-wider">Apariciones</div>
+        <div class="font-mono text-slate-100">${d.count}</div>
+      </div>
+      <div class="rounded bg-ink-800/60 border border-ink-700 px-2 py-1.5">
+        <div class="text-slate-500 text-[10px] uppercase tracking-wider">Degree</div>
+        <div class="font-mono text-slate-100">${fmt3(cent[k+'degree'])}</div>
+      </div>
+      <div class="rounded bg-ink-800/60 border border-ink-700 px-2 py-1.5">
+        <div class="text-slate-500 text-[10px] uppercase tracking-wider">PageRank</div>
+        <div class="font-mono text-cyan-300">${fmt3(cent[k+'pagerank'])}</div>
+      </div>
+      <div class="rounded bg-ink-800/60 border border-ink-700 px-2 py-1.5">
+        <div class="text-slate-500 text-[10px] uppercase tracking-wider">Betweenness</div>
+        <div class="font-mono text-rose-300">${fmt3(cent[k+'betweenness'])}</div>
+      </div>
+    </div>
+    <div class="mt-4 text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Vecinos directos</div>
+    <div class="space-y-1 text-[11px] font-mono">
+      ${adj.length === 0 ? '<div class="text-slate-500">(ninguno con los filtros actuales)</div>' :
+        adj.map(a => `<div class="flex items-baseline gap-2"><span class="text-cyan-300">${a.id}</span><span class="text-slate-500 text-[10px]">jac=${a.jaccard.toFixed(3)} · ${a.count}×</span></div>`).join('')}
+    </div>
+    <button onclick="document.getElementById('g-side').innerHTML=window._sideDefault" class="mt-4 text-[11px] font-mono uppercase tracking-wider px-2 py-1 rounded border border-ink-600 text-slate-400 hover:border-cyan-400 hover:text-cyan-300 transition">cerrar</button>
+  `;
+}
+window._sideDefault = document.getElementById('g-side').innerHTML;
+
+// ── 2. Centralidad ───────────────────────────────────────────────────────────
+function renderCentrality(mode) {
+  const k = mode === 'excised' ? 'excised_' : 'full_';
+  const rows = (DATA.centrality || []).filter(r => Number(r[k+'degree']) > 0);
+  const top = (sortKey, n=10) => [...rows]
+      .sort((a, b) => Number(b[sortKey]) - Number(a[sortKey]))
+      .slice(0, n);
+
+  const fmtList = (arr, valueKey) => arr.map((r, i) => `
+    <div class="flex items-baseline gap-2">
+      <span class="text-slate-500 w-5 text-right">${i+1}.</span>
+      <span class="text-cyan-300 w-16">${r.technique_id}</span>
+      <span class="text-slate-300 truncate flex-1">${r.name || ''}</span>
+      <span class="text-slate-200">${fmt3(r[valueKey])}</span>
+    </div>`).join('');
+
+  document.getElementById('cent-betweenness').innerHTML = fmtList(top(k+'betweenness'), k+'betweenness');
+  document.getElementById('cent-pagerank').innerHTML    = fmtList(top(k+'pagerank'),    k+'pagerank');
+  document.getElementById('cent-degree').innerHTML      = fmtList(top(k+'degree'),      k+'degree');
+}
+document.querySelectorAll('input[name="cent-mode"]').forEach(r => {
+  r.addEventListener('change', () => renderCentrality(r.value));
+});
+
+// ── 3. Reglas ARM ────────────────────────────────────────────────────────────
+function renderRules(rows) {
+  document.getElementById('rules-tbody').innerHTML = rows.map(r => {
+    const sig = r.bh_significant === 'True';
+    return `<tr class="${sig ? 'bg-emerald-500/5' : ''} hover:bg-ink-700/30">
+      <td class="py-2 pr-3 font-mono">
+        <span class="text-cyan-300">${r.antecedent}</span> →
+        <span class="text-rose-300">${r.consequent}</span>
+        <div class="text-[10px] text-slate-500 mt-0.5">${r.ant_name} → ${r.con_name}</div>
+      </td>
+      <td class="py-2 pr-3 font-mono text-[11px] text-slate-400">${r.ant_tactic} → ${r.con_tactic}</td>
+      <td class="py-2 pr-3 text-right font-mono text-slate-200">${(Number(r.support)*100).toFixed(2)}%</td>
+      <td class="py-2 pr-3 text-right font-mono text-cyan-300">${(Number(r.confidence)*100).toFixed(1)}%</td>
+      <td class="py-2 pr-3 text-right font-mono text-emerald-300">${Number(r.lift).toFixed(2)}</td>
+      <td class="py-2 pr-3 text-right font-mono text-slate-400">${Number(r.jaccard).toFixed(3)}</td>
+      <td class="py-2 pr-3 text-right font-mono text-slate-400">${Number(r.fisher_p).toExponential(1)}</td>
+      <td class="py-2 pr-3 text-right font-mono text-slate-400">${r.count_both} / ${r.count_ant}</td>
+      <td class="py-2 pr-3"><span class="text-[10px] px-1.5 py-0.5 rounded font-mono bg-ink-700/50 text-slate-300 border border-ink-600">${r.temporal_direction || '—'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 4. Tactic pairs ──────────────────────────────────────────────────────────
+function renderTacticPairs(rows) {
+  if (!rows.length) {
+    document.getElementById('tactic-pairs').innerHTML = '<div class="text-[12px] text-slate-500">Sin reglas top por par de táctica.</div>';
+    return;
+  }
+  let html = `<div class="overflow-x-auto"><table class="w-full text-[12px]">
+    <thead><tr class="text-[10px] uppercase tracking-[0.16em] text-slate-500 border-b border-ink-700">
+      <th class="text-left py-2 pr-3 font-medium">Origen</th>
+      <th class="text-left py-2 pr-3 font-medium">Destino</th>
+      <th class="text-left py-2 pr-3 font-medium">Regla</th>
+      <th class="text-right py-2 pr-3 font-medium">Confidence</th>
+      <th class="text-right py-2 pr-3 font-medium">Lift</th>
+      <th class="text-left py-2 pr-3 font-medium">Dirección</th>
+    </tr></thead><tbody class="divide-y divide-ink-700/50">`;
+  for (const r of rows) {
+    html += `<tr class="hover:bg-ink-700/30">
+      <td class="py-2 pr-3"><span class="inline-block w-2 h-2 rounded-full mr-1" style="background:${tacticColor(r.tactic_from_id)}"></span><span class="font-mono text-slate-300">${r.tactic_from_id}</span> <span class="text-slate-500">${r.tactic_from_name}</span></td>
+      <td class="py-2 pr-3"><span class="inline-block w-2 h-2 rounded-full mr-1" style="background:${tacticColor(r.tactic_to_id)}"></span><span class="font-mono text-slate-300">${r.tactic_to_id}</span> <span class="text-slate-500">${r.tactic_to_name}</span></td>
+      <td class="py-2 pr-3 font-mono"><span class="text-cyan-300">${r.antecedent}</span> → <span class="text-rose-300">${r.consequent}</span></td>
+      <td class="py-2 pr-3 text-right font-mono text-cyan-300">${(Number(r.confidence)*100).toFixed(1)}%</td>
+      <td class="py-2 pr-3 text-right font-mono text-emerald-300">${Number(r.lift).toFixed(2)}</td>
+      <td class="py-2 pr-3"><span class="text-[10px] px-1.5 py-0.5 rounded font-mono bg-ink-700/50 text-slate-300 border border-ink-600">${r.temporal_direction || '—'}</span></td>
+    </tr>`;
+  }
+  html += `</tbody></table></div>`;
+  document.getElementById('tactic-pairs').innerHTML = html;
+}
+</script>
+
+{% endblock %}

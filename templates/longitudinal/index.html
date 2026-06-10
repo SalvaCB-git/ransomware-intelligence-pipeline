@@ -1,0 +1,512 @@
+{% extends "base.html" %}
+{% block title %}Análisis longitudinal · TFG{% endblock %}
+
+{% block content %}
+
+<section class="mb-10">
+  <div class="flex items-baseline gap-3 mb-2">
+    <span class="text-xs uppercase tracking-[0.2em] text-cyan-300/80 font-semibold">Análisis temporal</span>
+    <span class="h-px flex-1 bg-gradient-to-r from-cyan-400/40 to-transparent"></span>
+  </div>
+  <h1 class="text-3xl sm:text-4xl font-semibold leading-tight text-white">
+    Cinco años de evolución del ransomware
+  </h1>
+  <p class="mt-3 max-w-3xl text-slate-400">
+    Trazas longitudinales del corpus validado (2.355 TTPs, 2021-2026) con corrección de sesgo de volumen
+    (SNIP), tests de tendencia (Mann-Kendall), entropía de fuentes (Shannon) y validación empírica del
+    early-warning del pipeline.
+  </p>
+  <p class="mt-2 text-xs text-slate-500">
+    <span class="font-mono">crowdstrike_blog</span> excluido del eje temporal: sus artículos llevan fecha del crawl, no de publicación.
+  </p>
+</section>
+
+{# ── Findings strip ── #}
+<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-12">
+  <article class="rounded-xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80 font-semibold mb-1">Hallazgo · monotónica perfecta</div>
+    <div class="font-mono text-cyan-100 text-lg">T1486 — Data Encrypted</div>
+    <div class="mt-1 text-xs text-slate-400">Mann-Kendall <span class="font-mono text-cyan-300">τ=1.0, p=0.017</span>. Única técnica con monotonicidad perfecta 2021-2025.</div>
+  </article>
+  <article class="rounded-xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-emerald-300/80 font-semibold mb-1">Hallazgo · early warning</div>
+    <div class="font-mono text-emerald-100 text-lg">T1204.004 ClickFix</div>
+    <div class="mt-1 text-xs text-slate-400">Detectada en corpus 2024 → catalogada por MITRE ATT&CK en marzo 2025. Lead time <span class="text-emerald-300 font-mono">~12 meses</span>.</div>
+  </article>
+  <article class="rounded-xl border border-violet-400/20 bg-gradient-to-br from-violet-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-violet-300/80 font-semibold mb-1">Hallazgo · técnica emergente</div>
+    <div class="font-mono text-violet-100 text-lg">T1219 RMM abuse</div>
+    <div class="mt-1 text-xs text-slate-400">Crece <span class="text-violet-300 font-mono">8.3×</span> tras normalización SNIP — robustez post-corrección de sesgo de fuente.</div>
+  </article>
+  <article class="rounded-xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-amber-300/80 font-semibold mb-1">Hallazgo · concentración</div>
+    <div class="font-mono text-amber-100 text-lg">Entropía Shannon</div>
+    <div class="mt-1 text-xs text-slate-400">Diversidad de fuentes cae de <span class="font-mono text-amber-300">83.5% → 62.7%</span> (2022-2024). bc_site copa el 56% del corpus 2024.</div>
+  </article>
+</section>
+
+{# ── 1. Volumen ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <header class="flex items-baseline justify-between mb-1">
+    <h2 class="text-lg font-semibold text-white">Volumen de TTPs por año</h2>
+    <span class="text-[11px] font-mono text-slate-500">volume_by_year.csv</span>
+  </header>
+  <p class="text-sm text-slate-400 mb-4">Crecimiento absoluto del corpus validado y delta interanual.</p>
+  <div class="grid lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 h-72 relative"><canvas id="chart-volume"></canvas></div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-[12px]">
+        <thead>
+          <tr class="text-[10px] uppercase tracking-[0.16em] text-slate-500 border-b border-ink-700">
+            <th class="text-left py-2 pr-2 font-medium">Año</th>
+            <th class="text-right py-2 pr-2 font-medium">TTPs</th>
+            <th class="text-right py-2 pr-2 font-medium">YoY</th>
+          </tr>
+        </thead>
+        <tbody id="volume-tbody" class="divide-y divide-ink-700/50 font-mono"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+{# ── 2. Tácticas ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <header class="flex items-baseline justify-between mb-1">
+    <h2 class="text-lg font-semibold text-white">Distribución de tácticas por año</h2>
+    <span class="text-[11px] font-mono text-slate-500">tactic_distribution_by_year.csv</span>
+  </header>
+  <p class="text-sm text-slate-400 mb-4">
+    Composición porcentual. <span class="text-cyan-300">Impact</span> crece de 14% (2021) a 22% (2025);
+    <span class="text-amber-300">Initial Access</span> baja de 18% (2022) a 10% (2025).
+  </p>
+  <div class="h-80 relative"><canvas id="chart-tactics"></canvas></div>
+</section>
+
+{# ── 3. Top técnicas heatmap ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <header class="flex items-baseline justify-between mb-1">
+    <h2 class="text-lg font-semibold text-white">Top 10 técnicas por año</h2>
+    <span class="text-[11px] font-mono text-slate-500">top_techniques_by_year.csv</span>
+  </header>
+  <p class="text-sm text-slate-400 mb-4">Intensidad por celda según número de TTPs ese año. Filas ordenadas por presencia total.</p>
+  <div id="heatmap-container" class="overflow-x-auto"></div>
+</section>
+
+{# ── 4. Mann-Kendall ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <header class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+    <div>
+      <h2 class="text-lg font-semibold text-white">Tendencias Mann-Kendall</h2>
+      <p class="text-sm text-slate-400 mt-1">
+        Tau de Kendall sobre la serie 2021-2025 con sparkline. <span class="text-cyan-300 font-mono">significant=True</span> tras p &lt; 0.05.
+      </p>
+    </div>
+    <span class="text-[11px] font-mono text-slate-500">mann_kendall_prevalence_matrix.csv</span>
+  </header>
+  <div class="flex flex-wrap items-center gap-2 mt-4 mb-3">
+    <input type="search" id="mk-search" autocomplete="off" placeholder="Buscar técnica…"
+           class="flex-1 min-w-[220px] px-3 py-1.5 text-[12px] bg-ink-900 border border-ink-600 rounded-md text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/40 outline-none transition">
+    <select id="mk-direction" class="text-[12px] bg-ink-900 border border-ink-600 rounded-md py-1.5 pl-3 pr-8 text-slate-200 focus:border-cyan-400 outline-none transition">
+      <option value="">Todas las direcciones</option>
+      <option value="increasing">Crecientes</option>
+      <option value="decreasing">Decrecientes</option>
+      <option value="no_trend">Sin tendencia</option>
+    </select>
+    <select id="mk-sig" class="text-[12px] bg-ink-900 border border-ink-600 rounded-md py-1.5 pl-3 pr-8 text-slate-200 focus:border-cyan-400 outline-none transition">
+      <option value="">Significativas + no</option>
+      <option value="True">Solo significativas</option>
+    </select>
+    <span id="mk-count" class="text-[11px] font-mono text-slate-500 self-center"></span>
+  </div>
+  <div class="overflow-x-auto max-h-[28rem] overflow-y-auto rounded-lg border border-ink-700">
+    <table class="w-full text-[12px]" id="mk-table">
+      <thead class="sticky top-0 bg-ink-800/95 backdrop-blur z-10">
+        <tr class="text-[10px] uppercase tracking-[0.16em] text-slate-500 border-b border-ink-700">
+          <th class="sortable cursor-pointer text-left py-2 pl-3 pr-2 font-medium hover:text-cyan-300" data-sort="technique_id">ID <span class="sort-ind text-slate-600">↕</span></th>
+          <th class="text-left py-2 pr-2 font-medium">Nombre</th>
+          <th class="sortable cursor-pointer text-right py-2 pr-2 font-medium hover:text-cyan-300" data-sort="total" data-numeric="1">Total <span class="sort-ind text-slate-600">↕</span></th>
+          <th class="sortable cursor-pointer text-right py-2 pr-2 font-medium hover:text-cyan-300" data-sort="tau" data-numeric="1">τ <span class="sort-ind text-slate-600">↕</span></th>
+          <th class="sortable cursor-pointer text-right py-2 pr-2 font-medium hover:text-cyan-300" data-sort="p_value" data-numeric="1">p-value <span class="sort-ind text-slate-600">↕</span></th>
+          <th class="text-left py-2 pr-2 font-medium">Dirección</th>
+          <th class="text-left py-2 pr-3 font-medium">2021–2025</th>
+        </tr>
+      </thead>
+      <tbody id="mk-tbody" class="divide-y divide-ink-700/40"></tbody>
+    </table>
+  </div>
+</section>
+
+{# ── 5. Emergencia normalizada ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <header class="flex items-baseline justify-between mb-1">
+    <h2 class="text-lg font-semibold text-white">Top 15 técnicas emergentes (SNIP-normalizado)</h2>
+    <span class="text-[11px] font-mono text-slate-500">normalized_emergence.csv</span>
+  </header>
+  <p class="text-sm text-slate-400 mb-4">
+    Growth ratio = prevalencia 2024-25 / prevalencia 2021-23 tras Source-Normalized Inverse Prevalence.
+    Robustez post-corrección de sesgo bc_site.
+  </p>
+  <div class="h-[28rem] relative"><canvas id="chart-emergence"></canvas></div>
+</section>
+
+{# ── 6. Shannon entropy ── #}
+<section class="grid lg:grid-cols-2 gap-6 mb-6">
+  <div class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6">
+    <header class="flex items-baseline justify-between mb-1">
+      <h2 class="text-lg font-semibold text-white">Entropía Shannon de fuentes</h2>
+      <span class="text-[11px] font-mono text-slate-500">shannon_entropy.csv</span>
+    </header>
+    <p class="text-sm text-slate-400 mb-4">Diversidad informacional de las fuentes que aportan TTPs cada año (normalizado a [0,1]).</p>
+    <div class="h-64 relative"><canvas id="chart-entropy"></canvas></div>
+    <div id="entropy-top3" class="mt-4 text-[11px] font-mono text-slate-400 space-y-0.5"></div>
+  </div>
+
+  {# ── 7. Doble extorsión ── #}
+  <div class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6">
+    <header class="flex items-baseline justify-between mb-1">
+      <h2 class="text-lg font-semibold text-white">Doble extorsión (doc-level)</h2>
+      <span class="text-[11px] font-mono text-slate-500">double_extortion_doc_level.csv</span>
+    </header>
+    <p class="text-sm text-slate-400 mb-4">
+      Documentos con cifrado <span class="font-mono">T1486</span> y exfiltración <span class="font-mono">TA0010</span> simultáneos. Lower bound conservador.
+    </p>
+    <div class="h-64 relative"><canvas id="chart-extortion"></canvas></div>
+  </div>
+</section>
+
+<section class="text-xs text-slate-500 mb-12">
+  Datos generados por <span class="font-mono text-slate-400">longitudinal_analysis.py</span> sobre BD <span class="font-mono text-slate-400">data/ransomware_intel.db</span>.
+  Regenerar con <span class="font-mono">python3 longitudinal_analysis.py --csv-dir outputs/longitudinal</span>.
+</section>
+
+<script>
+// ── Paleta ────────────────────────────────────────────────────────────────────
+const PALETTE = {
+  cyan: '#22d3ee', emerald: '#34d399', violet: '#a78bfa', amber: '#fbbf24',
+  rose: '#fb7185', sky: '#60a5fa', lime: '#a3e635', orange: '#fb923c',
+  pink: '#f472b6', teal: '#2dd4bf', slate: '#94a3b8', indigo: '#818cf8',
+  red: '#f87171', yellow: '#facc15', stone: '#a8a29e',
+};
+const TACTIC_COLORS = {
+  Impact: PALETTE.cyan, InitAcc: PALETTE.amber, DefEva: PALETTE.violet,
+  CredAcc: PALETTE.emerald, Exec: PALETTE.sky, Persist: PALETTE.lime,
+  C2: PALETTE.rose, LatMov: PALETTE.orange, ResDev: PALETTE.pink,
+  Discov: PALETTE.teal, Exfil: PALETTE.indigo, PrivEsc: PALETTE.red,
+  Collect: PALETTE.yellow, Recon: PALETTE.stone,
+};
+
+const COMMON_OPTS = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color: '#cbd5e1', font: { size: 11 } } },
+    tooltip: { backgroundColor: '#0b1020', borderColor: '#1a2348', borderWidth: 1, padding: 10 },
+  },
+  scales: {
+    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.06)' } },
+    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.06)' } },
+  },
+};
+
+// ── Sparkline SVG inline ──────────────────────────────────────────────────────
+function sparkline(values, w=110, h=22) {
+  if (!values || values.length === 0) return '';
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const range = (max - min) || 1;
+  const dx = w / (values.length - 1 || 1);
+  const pts = values.map((v, i) => {
+    const x = i * dx;
+    const y = h - 2 - ((v - min) / range) * (h - 4);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const last = values[values.length - 1];
+  const lx = (values.length - 1) * dx;
+  const ly = h - 2 - ((last - min) / range) * (h - 4);
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" class="inline-block">
+    <polyline points="${pts}" fill="none" stroke="#22d3ee" stroke-width="1.4"/>
+    <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="1.8" fill="#22d3ee"/>
+  </svg>`;
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+function waitForChart(cb) {
+  if (typeof Chart !== 'undefined') return cb();
+  setTimeout(() => waitForChart(cb), 50);
+}
+
+waitForChart(() => {
+  fetch('/api/longitudinal/data', { cache: 'no-store' })
+    .then(r => r.json())
+    .then(data => {
+      renderVolume(data.volume_by_year || []);
+      renderTactics(data.tactic_distribution || []);
+      renderHeatmap(data.top_techniques || []);
+      renderMannKendall(data.mann_kendall || []);
+      renderEmergence(data.normalized_emergence || []);
+      renderEntropy(data.shannon_entropy || []);
+      renderExtortion(data.double_extortion || []);
+    })
+    .catch(err => console.error('longitudinal data error', err));
+});
+
+// ── 1. Volumen ────────────────────────────────────────────────────────────────
+function renderVolume(rows) {
+  const labels = rows.map(r => r.year);
+  const ttps = rows.map(r => Number(r.ttps));
+  new Chart(document.getElementById('chart-volume'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'TTPs validados',
+        data: ttps,
+        backgroundColor: PALETTE.cyan + 'cc',
+        borderRadius: 4,
+      }],
+    },
+    options: { ...COMMON_OPTS, plugins: { ...COMMON_OPTS.plugins, legend: { display: false } } },
+  });
+
+  const tb = document.getElementById('volume-tbody');
+  tb.innerHTML = rows.map(r => {
+    const pct = r.yoy_pct;
+    const cls = pct === '-' ? 'text-slate-500' : (pct.startsWith('+') ? 'text-emerald-300' : 'text-rose-300');
+    return `<tr><td class="py-1.5 pr-2 text-slate-300">${r.year}</td>
+            <td class="py-1.5 pr-2 text-right text-cyan-300">${r.ttps}</td>
+            <td class="py-1.5 pr-2 text-right ${cls}">${pct}</td></tr>`;
+  }).join('');
+}
+
+// ── 2. Tácticas ───────────────────────────────────────────────────────────────
+function renderTactics(rows) {
+  const labels = rows.map(r => r.year);
+  const tactics = Object.keys(rows[0] || {}).filter(k => k !== 'year' && k !== 'total_ttps');
+  const datasets = tactics.map(t => ({
+    label: t,
+    data: rows.map(r => Number(r[t])),
+    backgroundColor: TACTIC_COLORS[t] || PALETTE.slate,
+    borderWidth: 0,
+  }));
+  new Chart(document.getElementById('chart-tactics'), {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      ...COMMON_OPTS,
+      scales: {
+        x: { stacked: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.06)' } },
+        y: { stacked: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.06)' } },
+      },
+      plugins: { ...COMMON_OPTS.plugins, tooltip: { ...COMMON_OPTS.plugins.tooltip, mode: 'index' } },
+    },
+  });
+}
+
+// ── 3. Heatmap top techniques ─────────────────────────────────────────────────
+function renderHeatmap(rows) {
+  const years = [...new Set(rows.map(r => r.year))].sort();
+  const techs = {};
+  for (const r of rows) {
+    if (!techs[r.technique_id]) techs[r.technique_id] = { name: r.name, totals: {} };
+    techs[r.technique_id].totals[r.year] = Number(r.count);
+  }
+  const techIds = Object.keys(techs).sort((a, b) => {
+    const sa = Object.values(techs[a].totals).reduce((s, v) => s + v, 0);
+    const sb = Object.values(techs[b].totals).reduce((s, v) => s + v, 0);
+    return sb - sa;
+  });
+  let maxCount = 0;
+  for (const t of techIds) for (const v of Object.values(techs[t].totals)) maxCount = Math.max(maxCount, v);
+
+  const cellColor = (v) => {
+    if (!v) return 'rgba(30,40,72,0.4)';
+    const t = v / maxCount;
+    const alpha = 0.15 + t * 0.7;
+    return `rgba(34,211,238,${alpha.toFixed(2)})`;
+  };
+
+  let html = `<table class="w-full text-[11px]">
+    <thead><tr class="text-[10px] uppercase tracking-wider text-slate-500">
+      <th class="text-left py-2 pr-3 font-medium">Técnica</th>
+      ${years.map(y => `<th class="px-2 py-2 font-medium text-center">${y}</th>`).join('')}
+      <th class="px-2 py-2 font-medium text-right">Total</th>
+    </tr></thead><tbody>`;
+  for (const tid of techIds) {
+    const total = Object.values(techs[tid].totals).reduce((s, v) => s + v, 0);
+    html += `<tr class="hover:bg-ink-700/30">
+      <td class="py-1.5 pr-3">
+        <span class="font-mono text-cyan-300">${tid}</span>
+        <span class="text-slate-400 ml-2 text-[11px]">${techs[tid].name}</span>
+      </td>`;
+    for (const y of years) {
+      const v = techs[tid].totals[y] || 0;
+      html += `<td class="px-2 py-1 text-center font-mono"
+                  style="background:${cellColor(v)};color:${v ? '#0b1020' : '#475569'}">
+        ${v || '·'}
+      </td>`;
+    }
+    html += `<td class="px-2 py-1 text-right font-mono text-slate-200">${total}</td></tr>`;
+  }
+  html += `</tbody></table>`;
+  document.getElementById('heatmap-container').innerHTML = html;
+}
+
+// ── 4. Mann-Kendall ───────────────────────────────────────────────────────────
+let MK_ROWS = [], MK_SORT = { key: 'total', dir: -1 };
+function renderMannKendall(rows) {
+  MK_ROWS = rows;
+  applyMK();
+}
+function applyMK() {
+  const tbody = document.getElementById('mk-tbody');
+  const q = document.getElementById('mk-search').value.trim().toLowerCase();
+  const dir = document.getElementById('mk-direction').value;
+  const sig = document.getElementById('mk-sig').value;
+  const filtered = MK_ROWS.filter(r => {
+    if (q && !((r.technique_id || '').toLowerCase().includes(q) || (r.name || '').toLowerCase().includes(q))) return false;
+    if (dir && r.direction !== dir) return false;
+    if (sig && r.significant !== sig) return false;
+    return true;
+  });
+  // sort
+  const k = MK_SORT.key, d = MK_SORT.dir;
+  const numeric = ['total', 'tau', 'p_value'].includes(k);
+  filtered.sort((a, b) => {
+    let va = a[k], vb = b[k];
+    if (numeric) { va = Number(va); vb = Number(vb); }
+    else { va = String(va || '').toLowerCase(); vb = String(vb || '').toLowerCase(); }
+    if (va < vb) return -d;
+    if (va > vb) return d;
+    return 0;
+  });
+
+  const dirBadge = (v) => {
+    if (v === 'increasing') return '<span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-400/20">↗ creciente</span>';
+    if (v === 'decreasing') return '<span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-400/20">↘ decreciente</span>';
+    return '<span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-ink-700/50 text-slate-400 border border-ink-600">— sin tend.</span>';
+  };
+
+  tbody.innerHTML = filtered.map(r => {
+    const series = (r.series_2021_2025 || '').split('|').map(Number);
+    const sigCls = r.significant === 'True' ? 'ring-1 ring-cyan-400/30' : '';
+    const tau = Number(r.tau).toFixed(2);
+    const tauCls = Number(r.tau) > 0 ? 'text-emerald-300' : (Number(r.tau) < 0 ? 'text-rose-300' : 'text-slate-400');
+    return `<tr class="hover:bg-ink-700/30 ${sigCls}">
+      <td class="py-1.5 pl-3 pr-2 font-mono text-cyan-300">${r.technique_id}</td>
+      <td class="py-1.5 pr-2 text-slate-300">${r.name || ''}</td>
+      <td class="py-1.5 pr-2 text-right font-mono text-slate-200">${r.total}</td>
+      <td class="py-1.5 pr-2 text-right font-mono ${tauCls}">${tau}</td>
+      <td class="py-1.5 pr-2 text-right font-mono text-slate-400">${Number(r.p_value).toFixed(3)}</td>
+      <td class="py-1.5 pr-2">${dirBadge(r.direction)}</td>
+      <td class="py-1.5 pr-3">${sparkline(series)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('mk-count').textContent = `${filtered.length} / ${MK_ROWS.length} técnicas`;
+}
+['mk-search', 'mk-direction', 'mk-sig'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', applyMK);
+  el.addEventListener('change', applyMK);
+});
+document.querySelectorAll('#mk-table th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const k = th.dataset.sort;
+    MK_SORT.dir = (MK_SORT.key === k) ? -MK_SORT.dir : -1;
+    MK_SORT.key = k;
+    document.querySelectorAll('#mk-table th.sortable .sort-ind').forEach(s => {
+      s.textContent = '↕'; s.className = 'sort-ind text-slate-600';
+    });
+    const ind = th.querySelector('.sort-ind');
+    ind.textContent = MK_SORT.dir === 1 ? '↑' : '↓';
+    ind.className = 'sort-ind text-cyan-300';
+    applyMK();
+  });
+});
+
+// ── 5. Emergence ──────────────────────────────────────────────────────────────
+function renderEmergence(rows) {
+  // Top 15 por growth_ratio descendente, excluyendo NaN/inf
+  const filtered = rows
+    .filter(r => Number.isFinite(Number(r.growth_ratio)))
+    .sort((a, b) => Number(b.growth_ratio) - Number(a.growth_ratio))
+    .slice(0, 15);
+  const labels = filtered.map(r => `${r.technique_id} · ${(r.name || '').slice(0, 40)}`);
+  const data = filtered.map(r => Number(r.growth_ratio));
+  new Chart(document.getElementById('chart-emergence'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Growth ratio (late / early, normalizado)',
+        data,
+        backgroundColor: data.map(v => v >= 3 ? PALETTE.violet + 'dd' : PALETTE.cyan + 'aa'),
+        borderRadius: 3,
+      }],
+    },
+    options: {
+      ...COMMON_OPTS,
+      indexAxis: 'y',
+      plugins: { ...COMMON_OPTS.plugins, legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.06)' } },
+        y: { ticks: { color: '#cbd5e1', font: { size: 10 } }, grid: { display: false } },
+      },
+    },
+  });
+}
+
+// ── 6. Entropy ────────────────────────────────────────────────────────────────
+function renderEntropy(rows) {
+  const labels = rows.map(r => r.year);
+  const norm = rows.map(r => Number(r.entropy_normalized) * 100);
+  const bits = rows.map(r => Number(r.entropy_bits));
+  new Chart(document.getElementById('chart-entropy'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Entropía normalizada (%)', data: norm, borderColor: PALETTE.amber, backgroundColor: PALETTE.amber + '22', tension: 0.3, fill: true, yAxisID: 'y' },
+        { label: 'Entropía (bits)', data: bits, borderColor: PALETTE.cyan, tension: 0.3, yAxisID: 'y1' },
+      ],
+    },
+    options: {
+      ...COMMON_OPTS,
+      scales: {
+        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.06)' } },
+        y:  { position: 'left',  ticks: { color: PALETTE.amber }, grid: { color: 'rgba(148,163,184,0.06)' }, suggestedMin: 50, suggestedMax: 100 },
+        y1: { position: 'right', ticks: { color: PALETTE.cyan },  grid: { display: false } },
+      },
+    },
+  });
+
+  const top3 = document.getElementById('entropy-top3');
+  top3.innerHTML = '<div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-1">Top 3 fuentes por año</div>' +
+    rows.map(r => `<div><span class="text-slate-300">${r.year}</span> · <span class="text-slate-500">${r.top3_sources || ''}</span></div>`).join('');
+}
+
+// ── 7. Doble extorsión ────────────────────────────────────────────────────────
+function renderExtortion(rows) {
+  const labels = rows.map(r => r.year);
+  const rate = rows.map(r => parseFloat((r.rate || '0').replace('%', '')));
+  const both = rows.map(r => Number(r.has_both));
+  new Chart(document.getElementById('chart-extortion'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Tasa doc-level (%)', data: rate, borderColor: PALETTE.rose, backgroundColor: PALETTE.rose + '22', tension: 0.3, fill: true, yAxisID: 'y' },
+        { label: 'Documentos con T1486 ∩ TA0010', data: both, borderColor: PALETTE.violet, tension: 0.3, yAxisID: 'y1' },
+      ],
+    },
+    options: {
+      ...COMMON_OPTS,
+      scales: {
+        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.06)' } },
+        y:  { position: 'left',  ticks: { color: PALETTE.rose, callback: v => v + '%' }, grid: { color: 'rgba(148,163,184,0.06)' } },
+        y1: { position: 'right', ticks: { color: PALETTE.violet }, grid: { display: false } },
+      },
+    },
+  });
+}
+</script>
+
+{% endblock %}

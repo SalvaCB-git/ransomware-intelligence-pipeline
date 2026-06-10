@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Ransomware Intelligence Pipeline{% endblock %}
+
+{% block content %}
+<section class="mb-12">
+  <div class="flex items-baseline gap-3 mb-2">
+    <span class="text-xs uppercase tracking-[0.2em] text-cyan-300/80 font-semibold">Resumen</span>
+    <span class="h-px flex-1 bg-gradient-to-r from-cyan-400/40 to-transparent"></span>
+  </div>
+  <h1 class="text-3xl sm:text-4xl font-semibold leading-tight text-white">
+    Pipeline end-to-end de extracción de TTPs sobre threat intelligence público
+  </h1>
+  <p class="mt-3 max-w-3xl text-slate-400">
+    Recolección automatizada de reportes CTI, extracción semántica con LLM (RAG híbrido) y validación
+    con LLM-as-a-judge cruzando dos modelos independientes. La defensa se apoya en cuatro hallazgos cuantitativos.
+  </p>
+</section>
+
+<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-14">
+  {# ── 1. Corpus validado ── #}
+  <article class="metric-card rounded-2xl border border-ink-700 bg-ink-800/60 p-5">
+    <header class="flex items-center gap-2 text-cyan-300/80 text-xs uppercase tracking-wider font-semibold">
+      <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v2H3V5zm0 4h14v6a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>
+      Corpus validado
+    </header>
+    <div class="mt-3 flex items-baseline gap-1">
+      <span id="m-corpus" class="stat-number text-5xl font-bold text-white">—</span>
+      <span class="text-sm text-slate-400">TTPs</span>
+    </div>
+    <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+      Aceptados por el juez Gemma 4 26B sobre <span id="m-corpus-articles" class="text-slate-200 font-medium">…</span> artículos.
+      Cobertura temporal 2021-2026.
+    </p>
+    <a href="#" class="mt-4 inline-flex items-center gap-1 text-xs text-cyan-300 hover:text-cyan-200 opacity-50 cursor-not-allowed">
+      Explorar corpus → <span class="text-[10px]">(próximamente)</span>
+    </a>
+  </article>
+
+  {# ── 2. Convergencia humano-LLM ── #}
+  <article class="metric-card rounded-2xl border border-ink-700 bg-ink-800/60 p-5">
+    <header class="flex items-center gap-2 text-emerald-300/80 text-xs uppercase tracking-wider font-semibold">
+      <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+      Convergencia humano · Gemma
+    </header>
+    <div class="mt-3 flex items-baseline gap-2">
+      <span id="m-conv-human" class="stat-number text-3xl font-bold text-white">—</span>
+      <span class="text-slate-500">vs</span>
+      <span id="m-conv-gemma" class="stat-number text-3xl font-bold text-white">—</span>
+    </div>
+    <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+      Tasa de aceptación sobre TTPs <span class="font-mono text-slate-300">conf=1.0</span>.
+      Diferencia: <span id="m-conv-delta" class="text-emerald-300 font-medium">—</span>.
+      Ambas vías coinciden en ~41%: la confianza máxima no garantiza validez.
+    </p>
+    <p class="mt-3 text-[11px] text-slate-500">
+      Mínima diferencia detectable (TOST, N=100): <span id="m-tost-delta" class="text-slate-300 font-mono">±—</span> · no prueba equivalencia a ±5pp
+    </p>
+  </article>
+
+  {# ── 3. F1 del pipeline ── #}
+  <article class="metric-card rounded-2xl border border-ink-700 bg-ink-800/60 p-5">
+    <header class="flex items-center gap-2 text-violet-300/80 text-xs uppercase tracking-wider font-semibold">
+      <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+      F1 del pipeline
+    </header>
+    <div class="mt-3 flex items-baseline gap-1">
+      <span id="m-f1" class="stat-number text-5xl font-bold text-white">—</span>
+    </div>
+    <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+      Combined post-stratificado, BCa 95% CI <span id="m-f1-ci" class="font-mono text-slate-300">[—, —]</span>.
+      Mejora de <span id="m-f1-delta" class="text-violet-300 font-medium">—</span> sobre extractor solo.
+    </p>
+    <p class="mt-3 text-[11px] text-slate-500">
+      MCC = <span id="m-mcc" class="font-mono text-slate-300">—</span>
+      · α<sub>K</sub> = <span id="m-alpha" class="font-mono text-slate-300">—</span>
+    </p>
+  </article>
+
+  {# ── 4. v2 corrige errores E1 ── #}
+  <article class="metric-card rounded-2xl border border-ink-700 bg-ink-800/60 p-5">
+    <header class="flex items-center gap-2 text-rose-300/80 text-xs uppercase tracking-wider font-semibold">
+      <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1.944l8 4v4c0 4.97-3.343 9.16-8 10.056-4.657-.896-8-5.086-8-10.056v-4l8-4zM9 13a1 1 0 102 0V9a1 1 0 10-2 0v4z" clip-rule="evenodd"/></svg>
+      Errores E1 corregidos por v2
+    </header>
+    <div class="mt-3 flex items-baseline gap-1">
+      <span id="m-e1" class="stat-number text-5xl font-bold text-white">—</span>
+      <span class="text-2xl text-slate-400">%</span>
+    </div>
+    <p class="mt-2 text-sm text-slate-400 leading-relaxed">
+      Gemma 4 corrige <span id="m-e1-frac" class="text-slate-200 font-medium">—</span> errores de abstracción vaga
+      del juez v1 (Qwen 2.5 14B). Total corrección: <span id="m-e1-total" class="text-rose-300 font-medium">—</span>.
+    </p>
+    <p class="mt-3 text-[11px] text-slate-500">
+      Justifica cuantitativamente añadir el segundo juez.
+    </p>
+  </article>
+</section>
+
+<section class="rounded-2xl border border-ink-700 bg-ink-800/40 p-6 mb-12">
+  <h2 class="text-lg font-semibold text-white mb-4">Etapas del pipeline</h2>
+  <ol class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-sm text-slate-300">
+    <li class="flex gap-3"><span class="text-cyan-300 font-mono w-6">01</span><span>Recolección automatizada (Scrapy + Playwright, 13 fuentes CTI)</span></li>
+    <li class="flex gap-3"><span class="text-cyan-300 font-mono w-6">02</span><span>Preprocesamiento con dedup SimHash 64-bit (Hamming ≤ 3)</span></li>
+    <li class="flex gap-3"><span class="text-cyan-300 font-mono w-6">03</span><span>Pre-filtrado semántico SBERT + ChromaDB (umbral coseno 0.55)</span></li>
+    <li class="flex gap-3"><span class="text-cyan-300 font-mono w-6">04</span><span>Extracción RAG híbrido con Qwen 2.5 14B local</span></li>
+    <li class="flex gap-3"><span class="text-cyan-300 font-mono w-6">05</span><span>LLM-as-a-judge v2 (Gemma 4 26B vía Google AI Studio)</span></li>
+    <li class="flex gap-3"><span class="text-cyan-300 font-mono w-6">06</span><span>Calibración humana (484 anotaciones, Krippendorff α)</span></li>
+    <li class="flex gap-3"><span class="text-cyan-300 font-mono w-6">07</span><span>Análisis longitudinal y co-ocurrencia (Mann-Kendall, ARM)</span></li>
+    <li class="flex gap-3"><span class="text-cyan-300 font-mono w-6">08</span><span>Demo end-to-end sobre artículo seleccionado</span></li>
+  </ol>
+</section>
+
+<section class="text-xs text-slate-500">
+  Datos en vivo desde <span class="font-mono text-slate-400">data/ransomware_intel.db</span>
+  y <span class="font-mono text-slate-400">outputs/evaluation_f1/</span>.
+  Última actualización del corpus: <span id="m-last-update" class="text-slate-400">—</span>.
+</section>
+
+<script>
+(function () {
+  function fmtPct(x, decimals=1) {
+    if (x == null || isNaN(x)) return "—";
+    return (x * 100).toFixed(decimals) + "%";
+  }
+  function fmtNum(x, decimals=3) {
+    if (x == null || isNaN(x)) return "—";
+    return Number(x).toFixed(decimals);
+  }
+  function fmtInt(x) {
+    if (x == null || isNaN(x)) return "—";
+    return Number(x).toLocaleString("es-ES");
+  }
+  function set(id, v) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = v;
+  }
+
+  fetch("/api/demo/stats", { cache: "no-store" })
+    .then(r => r.json())
+    .then(d => {
+      // Corpus
+      set("m-corpus", fmtInt(d.corpus_validated));
+      set("m-corpus-articles", fmtInt(d.total_articles));
+      set("m-last-update", d.last_update_iso || "—");
+
+      // Convergencia
+      set("m-conv-human", fmtPct(d.convergence?.human, 1));
+      set("m-conv-gemma", fmtPct(d.convergence?.gemma, 1));
+      const delta = d.convergence?.delta_pp;
+      set("m-conv-delta", delta != null ? `${delta >= 0 ? "+" : ""}${delta.toFixed(2)}pp` : "—");
+      const tost = d.convergence?.tost_delta_min;
+      set("m-tost-delta", tost != null ? `±${(tost * 100).toFixed(2)}pp` : "±—");
+
+      // F1
+      set("m-f1", fmtNum(d.f1?.point, 3));
+      const lo = d.f1?.ci_low, hi = d.f1?.ci_high;
+      set("m-f1-ci", (lo != null && hi != null) ? `[${lo.toFixed(3)}, ${hi.toFixed(3)}]` : "[—, —]");
+      const fdelta = d.f1?.delta_pp;
+      set("m-f1-delta", fdelta != null ? `+${fdelta.toFixed(1)}pp` : "—");
+      set("m-mcc", fmtNum(d.f1?.mcc, 3));
+      set("m-alpha", fmtNum(d.f1?.alpha, 3));
+
+      // E1
+      set("m-e1", d.e1?.rate != null ? (d.e1.rate * 100).toFixed(1) : "—");
+      const e1n = d.e1?.corrected, e1t = d.e1?.total;
+      set("m-e1-frac", (e1n != null && e1t != null) ? `${e1n}/${e1t}` : "—");
+      const tt = d.e1?.total_correction_rate;
+      set("m-e1-total", tt != null ? `${(tt * 100).toFixed(1)}% (${d.e1?.total_corrected}/${d.e1?.total_errors})` : "—");
+    })
+    .catch(err => {
+      console.error("stats error", err);
+    });
+})();
+</script>
+{% endblock %}

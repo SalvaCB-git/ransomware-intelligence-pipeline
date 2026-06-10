@@ -1,0 +1,17 @@
+# Dependencias para tests/test_analysis_vs_reference.py: validan las
+# implementaciones estadísticas propias del análisis (MCC, Fisher, Benjamini-
+# Hochberg, betweenness de Brandes, PageRank, Mann-Kendall, TOST, bootstrap BCa)
+# contra implementaciones de referencia.
+#
+# El test hace `importorskip`, así que el resto de la suite corre sin estas libs.
+#   python3 -m venv .venv-validation
+#   .venv-validation/bin/pip install pytest -r requirements-validation.txt
+#   .venv-validation/bin/pytest tests/test_analysis_vs_reference.py -v
+#
+# Versiones verificadas compatibles con Python 3.8 (el host de tests).
+numpy==1.24.4
+scipy==1.10.1
+scikit-learn==1.3.2
+statsmodels==0.14.1
+networkx==3.1
+krippendorff>=0.6,<1

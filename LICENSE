@@ -1,0 +1,15 @@
+PLACEHOLDER — LICENCIA PENDIENTE DE DEFINIR
+
+Este repositorio acompaña al Trabajo Fin de Grado «Ransomware Intelligence
+Pipeline» de Salvador Cascón Bertomeu (2026).
+
+La licencia definitiva (MIT / Apache 2.0 / académica restrictiva) se fijará
+tras la defensa del TFG, coordinada con Florida International University
+(colaboración académica del proyecto). Hasta entonces, todos los derechos
+reservados; el código se distribuye únicamente al tribunal evaluador con
+fines de evaluación académica.
+
+Los datos de MITRE ATT&CK® incluidos (data/mitre_attack_cache.json,
+pc/mitre_techniques.json) son propiedad de The MITRE Corporation y se
+reproducen con su permiso (reproduced with permission of The MITRE
+Corporation). MITRE ATT&CK® es una marca registrada de The MITRE Corporation.

@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+{% block title %}Corpus · TFG{% endblock %}
+
+{% block content %}
+
+<section class="mb-10">
+  <div class="flex items-baseline gap-3 mb-2">
+    <span class="text-xs uppercase tracking-[0.2em] text-cyan-300/80 font-semibold">Explorador del corpus</span>
+    <span class="h-px flex-1 bg-gradient-to-r from-cyan-400/40 to-transparent"></span>
+  </div>
+  <h1 class="text-3xl sm:text-4xl font-semibold leading-tight text-white">
+    Navegación por el corpus completo
+  </h1>
+  <p class="mt-3 max-w-3xl text-slate-400">
+    Cualquiera de los <span id="hd-total" class="font-mono text-cyan-300">3.871</span> artículos puede inspeccionarse:
+    pre-filtro aplicado, TTPs extraídos por Qwen, veredictos del juez v1 y v2 lado a lado, y el cuerpo original.
+  </p>
+</section>
+
+{# ── Stats strip ── #}
+<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+  <article class="rounded-xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80 font-semibold mb-1">Artículos totales</div>
+    <div class="font-mono text-cyan-100 text-2xl" id="st-total">—</div>
+  </article>
+  <article class="rounded-xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-emerald-300/80 font-semibold mb-1">Procesados (completed)</div>
+    <div class="font-mono text-emerald-100 text-2xl" id="st-completed">—</div>
+    <div class="text-xs text-slate-400 mt-1"><span id="st-filtered">—</span> filtered · <span id="st-abandoned">—</span> abandoned</div>
+  </article>
+  <article class="rounded-xl border border-violet-400/20 bg-gradient-to-br from-violet-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-violet-300/80 font-semibold mb-1">Con ≥1 TTP aceptado v2</div>
+    <div class="font-mono text-violet-100 text-2xl" id="st-with-ttps">—</div>
+  </article>
+  <article class="rounded-xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 to-transparent p-4">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-amber-300/80 font-semibold mb-1">TTPs validados</div>
+    <div class="font-mono text-amber-100 text-2xl" id="st-accepts">—</div>
+  </article>
+</section>
+
+{# ── Distribución por fuente ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-5 mb-6">
+  <header class="flex items-baseline justify-between mb-4">
+    <h2 class="text-sm font-semibold text-white">Distribución por fuente</h2>
+    <span class="text-[11px] font-mono text-slate-500">click para filtrar</span>
+  </header>
+  <div id="src-bars" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1.5"></div>
+</section>
+
+{# ── Filtros + tabla ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-12">
+  <header class="flex items-baseline justify-between mb-4 flex-wrap gap-2">
+    <h2 class="text-lg font-semibold text-white">Artículos</h2>
+    <span id="art-count" class="text-[11px] font-mono text-slate-500"></span>
+  </header>
+
+  <div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="relative flex-1 min-w-[240px]">
+      <svg class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+      <input type="search" id="f-q" autocomplete="off" placeholder="Buscar en título o URL…"
+             class="w-full pl-8 pr-3 py-1.5 text-[12px] bg-ink-900 border border-ink-600 rounded-md text-slate-100 placeholder-slate-500 focus:border-cyan-400 outline-none transition">
+    </div>
+    <select id="f-source" class="text-[12px] bg-ink-900 border border-ink-600 rounded-md py-1.5 pl-3 pr-8 text-slate-200 focus:border-cyan-400 outline-none">
+      <option value="">Todas las fuentes</option>
+    </select>
+    <select id="f-state" class="text-[12px] bg-ink-900 border border-ink-600 rounded-md py-1.5 pl-3 pr-8 text-slate-200 focus:border-cyan-400 outline-none">
+      <option value="">Cualquier estado</option>
+      <option value="completed">completed</option>
+      <option value="filtered">filtered</option>
+      <option value="abandoned">abandoned</option>
+    </select>
+    <select id="f-year" class="text-[12px] bg-ink-900 border border-ink-600 rounded-md py-1.5 pl-3 pr-8 text-slate-200 focus:border-cyan-400 outline-none">
+      <option value="">Cualquier año</option>
+    </select>
+    <select id="f-ttps" class="text-[12px] bg-ink-900 border border-ink-600 rounded-md py-1.5 pl-3 pr-8 text-slate-200 focus:border-cyan-400 outline-none">
+      <option value="">TTPs: cualquiera</option>
+      <option value="1">Con TTPs aceptados v2</option>
+      <option value="0">Sin TTPs aceptados</option>
+    </select>
+    <button id="f-reset"
+            class="text-[11px] font-mono uppercase tracking-wider px-3 py-1.5 rounded-md border border-ink-600 text-slate-400 hover:border-cyan-400 hover:text-cyan-300 transition">
+      Reset
+    </button>
+  </div>
+
+  <div class="overflow-x-auto rounded-lg border border-ink-700">
+    <table class="w-full text-[12px]" id="art-table">
+      <thead>
+        <tr class="text-[10px] uppercase tracking-[0.16em] text-slate-500 border-b border-ink-700 bg-ink-900/50">
+          <th class="text-left py-2 pl-4 pr-3 font-medium">ID</th>
+          <th class="text-left py-2 pr-3 font-medium">Fecha</th>
+          <th class="text-left py-2 pr-3 font-medium">Fuente</th>
+          <th class="text-left py-2 pr-3 font-medium">Título</th>
+          <th class="text-left py-2 pr-3 font-medium">Estado</th>
+          <th class="text-right py-2 pr-3 font-medium">TTPs (v2 ✓ / total)</th>
+          <th class="py-2 pr-4"></th>
+        </tr>
+      </thead>
+      <tbody id="art-tbody" class="divide-y divide-ink-700/50"></tbody>
+    </table>
+  </div>
+
+  <div class="flex items-center justify-center gap-2 mt-6 text-[12px]" id="art-pager"></div>
+</section>
+
+<section class="text-xs text-slate-500 mb-12">
+  Datos en vivo desde <span class="font-mono text-slate-400">articles</span>, <span class="font-mono text-slate-400">extractions</span>, <span class="font-mono text-slate-400">ttp_verdicts</span> y <span class="font-mono text-slate-400">ttp_verdicts_v2</span>.
+</section>
+
+<script>
+const VERDICT_COLORS = {
+  accept:    'bg-emerald-500/15 text-emerald-200 border-emerald-400/30',
+  reject:    'bg-rose-500/15 text-rose-200 border-rose-400/30',
+  uncertain: 'bg-amber-500/15 text-amber-200 border-amber-400/30',
+};
+const STATE_BADGE = {
+  completed: 'bg-emerald-500/10 text-emerald-300 border-emerald-400/20',
+  filtered:  'bg-amber-500/10 text-amber-300 border-amber-400/20',
+  abandoned: 'bg-rose-500/10 text-rose-300 border-rose-400/20',
+  pending:   'bg-ink-700/50 text-slate-300 border-ink-600',
+  processing:'bg-cyan-500/10 text-cyan-300 border-cyan-400/20',
+};
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+function fmt3(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toFixed(3); }
+function fmtInt(n) { return (n == null) ? '—' : Number(n).toLocaleString('es-ES'); }
+function fmtDate(iso) { return iso ? iso.slice(0, 10) : '—'; }
+
+// ── Stats ────────────────────────────────────────────────────────────────────
+let STATS = null;
+
+fetch('/api/corpus/stats', { cache: 'no-store' })
+  .then(r => r.json())
+  .then(d => {
+    STATS = d;
+    document.getElementById('hd-total').textContent = fmtInt(d.total_articles);
+    document.getElementById('st-total').textContent = fmtInt(d.total_articles);
+    document.getElementById('st-completed').textContent = fmtInt(d.by_state.completed || 0);
+    document.getElementById('st-filtered').textContent = fmtInt(d.by_state.filtered || 0);
+    document.getElementById('st-abandoned').textContent = fmtInt(d.by_state.abandoned || 0);
+    document.getElementById('st-with-ttps').textContent = fmtInt(d.articles_with_ttps);
+    document.getElementById('st-accepts').textContent = fmtInt(d.accepts_v2);
+
+    // Distribución por fuente
+    const max = Math.max(...d.by_source.map(s => s.n));
+    document.getElementById('src-bars').innerHTML = d.by_source.map(s => {
+      const pct = (s.n / max * 100).toFixed(2);
+      return `<button onclick="filterBySource('${s.source}')"
+                class="flex items-baseline gap-2 hover:bg-ink-700/30 rounded px-2 py-1 transition text-left">
+        <span class="font-mono text-[11px] text-slate-300 w-44 truncate">${escapeHtml(s.source)}</span>
+        <span class="font-mono text-[11px] text-slate-500 w-12 text-right">${fmtInt(s.n)}</span>
+        <div class="flex-1 h-1.5 bg-ink-700 rounded-full overflow-hidden">
+          <div class="h-full bg-cyan-400/80" style="width:${pct}%"></div>
+        </div>
+      </button>`;
+    }).join('');
+
+    // Poblar select fuentes y años
+    const srcSel = document.getElementById('f-source');
+    for (const s of d.by_source) {
+      const o = document.createElement('option');
+      o.value = s.source; o.textContent = `${s.source} (${s.n})`;
+      srcSel.appendChild(o);
+    }
+    const yearSel = document.getElementById('f-year');
+    for (const y of d.by_year) {
+      const o = document.createElement('option');
+      o.value = y.year; o.textContent = `${y.year} (${y.n})`;
+      yearSel.appendChild(o);
+    }
+  })
+  .catch(err => console.error('corpus stats error', err));
+
+function filterBySource(src) {
+  document.getElementById('f-source').value = src;
+  ART_PAGE = 0;
+  loadArticles();
+  document.getElementById('art-table').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Tabla artículos ──────────────────────────────────────────────────────────
+let ART_PAGE = 0;
+let ART_DETAIL_OPEN = null;  // article_id de la fila expandida
+
+function buildQuery() {
+  const q = document.getElementById('f-q').value.trim();
+  const source = document.getElementById('f-source').value;
+  const state = document.getElementById('f-state').value;
+  const year = document.getElementById('f-year').value;
+  const ttps = document.getElementById('f-ttps').value;
+  const params = new URLSearchParams({ page: ART_PAGE, per_page: 20 });
+  if (q) params.set('q', q);
+  if (source) params.set('source', source);
+  if (state) params.set('state', state);
+  if (year) params.set('year', year);
+  if (ttps) params.set('has_ttps', ttps);
+  return params.toString();
+}
+
+function loadArticles() {
+  const tbody = document.getElementById('art-tbody');
+  tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center font-mono text-slate-500">Cargando…</td></tr>`;
+  fetch('/api/corpus/articles?' + buildQuery(), { cache: 'no-store' })
+    .then(r => r.json())
+    .then(d => renderArticles(d))
+    .catch(err => {
+      tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center font-mono text-rose-300">Error: ${err}</td></tl>`;
+    });
+}
+
+function renderArticles(data) {
+  const tbody = document.getElementById('art-tbody');
+  document.getElementById('art-count').textContent =
+    `${data.articles.length} de ${fmtInt(data.total)} artículos`;
+
+  if (!data.articles.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center font-mono text-[11px] text-slate-500">Sin resultados con esos filtros.</td></tr>`;
+    document.getElementById('art-pager').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = data.articles.map(a => {
+    const stateCls = STATE_BADGE[a.processing_state] || 'bg-ink-700/50 text-slate-300 border-ink-600';
+    const titleText = (a.title && a.title.trim()) ? a.title : `(sin título · ${a.url ? a.url.split('/').slice(-2).join('/') : 'n/a'})`;
+    const ttpsText = (a.v2_judged > 0)
+      ? `<span class="text-emerald-300">${a.v2_accepts}</span><span class="text-slate-500"> / ${a.v2_judged}</span>`
+      : ((a.valid_ttp_count > 0)
+          ? `<span class="text-slate-500">${a.valid_ttp_count} sin v2</span>`
+          : '<span class="text-slate-600">—</span>');
+
+    return `<tr class="hover:bg-ink-700/20 transition cursor-pointer"
+                data-article-id="${a.id}"
+                onclick="toggleDetail(${a.id})">
+      <td class="py-2 pl-4 pr-3 font-mono text-[11px] text-slate-500">${a.id}</td>
+      <td class="py-2 pr-3 font-mono text-[11px] text-slate-400">${fmtDate(a.published_utc)}</td>
+      <td class="py-2 pr-3 font-mono text-[11px] text-slate-300">${escapeHtml(a.source)}</td>
+      <td class="py-2 pr-3 text-slate-200">${escapeHtml(titleText.slice(0, 110))}${titleText.length > 110 ? '…' : ''}</td>
+      <td class="py-2 pr-3"><span class="text-[10px] px-1.5 py-0.5 rounded font-mono border ${stateCls}">${a.processing_state || '—'}</span></td>
+      <td class="py-2 pr-3 text-right font-mono">${ttpsText}</td>
+      <td class="py-2 pr-4 text-right text-slate-500" id="caret-${a.id}">▸</td>
+    </tr>
+    <tr id="detail-${a.id}" class="hidden">
+      <td colspan="7" class="p-0 bg-black/30"></td>
+    </tr>`;
+  }).join('');
+
+  // Pager
+  const totalPages = Math.ceil(data.total / data.per_page) || 1;
+  if (ART_PAGE >= totalPages) ART_PAGE = 0;
+  const btn = (label, page, disabled, active) =>
+    `<button ${disabled ? 'disabled' : ''} onclick="goPage(${page})"
+       class="px-3 py-1 rounded-md border text-[12px] font-mono transition ${active ? 'border-cyan-400 text-cyan-300 bg-cyan-500/10' : 'border-ink-600 text-slate-400 hover:border-cyan-400 hover:text-cyan-300'} ${disabled ? 'opacity-30 cursor-not-allowed' : ''}">${label}</button>`;
+  let pHtml = btn('←', Math.max(0, ART_PAGE - 1), ART_PAGE === 0);
+  const start = Math.max(0, ART_PAGE - 3);
+  const end = Math.min(totalPages, start + 7);
+  for (let i = start; i < end; i++) pHtml += btn(String(i + 1), i, false, i === ART_PAGE);
+  pHtml += btn('→', Math.min(totalPages - 1, ART_PAGE + 1), ART_PAGE >= totalPages - 1);
+  pHtml += `<span class="ml-3 text-slate-500 font-mono text-[11px]">página ${ART_PAGE + 1} / ${totalPages}</span>`;
+  document.getElementById('art-pager').innerHTML = pHtml;
+}
+
+function goPage(p) {
+  ART_PAGE = p;
+  ART_DETAIL_OPEN = null;
+  loadArticles();
+  document.getElementById('art-table').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+['f-q', 'f-source', 'f-state', 'f-year', 'f-ttps'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => { ART_PAGE = 0; loadArticles(); });
+  el.addEventListener('change', () => { ART_PAGE = 0; loadArticles(); });
+});
+document.getElementById('f-reset').addEventListener('click', () => {
+  ['f-q', 'f-source', 'f-state', 'f-year', 'f-ttps'].forEach(id => document.getElementById(id).value = '');
+  ART_PAGE = 0;
+  loadArticles();
+});
+
+// ── Drawer detalle ───────────────────────────────────────────────────────────
+function toggleDetail(id) {
+  const row = document.getElementById('detail-' + id);
+  const caret = document.getElementById('caret-' + id);
+  if (!row.classList.contains('hidden')) {
+    row.classList.add('hidden');
+    caret.textContent = '▸';
+    if (ART_DETAIL_OPEN === id) ART_DETAIL_OPEN = null;
+    return;
+  }
+  row.classList.remove('hidden');
+  caret.textContent = '▾';
+  caret.classList.add('text-cyan-300');
+  ART_DETAIL_OPEN = id;
+  const cell = row.querySelector('td');
+  cell.innerHTML = `<div class="px-6 py-5 font-mono text-[11px] text-slate-500">Cargando detalle…</div>`;
+  fetch(`/api/corpus/article/${id}`, { cache: 'no-store' })
+    .then(r => r.json())
+    .then(d => renderDetail(cell, d))
+    .catch(err => { cell.innerHTML = `<div class="px-6 py-5 text-rose-300 text-[12px]">Error: ${err}</div>`; });
+}
+
+function renderDetail(container, data) {
+  const a = data.article;
+  const e = data.extraction;
+  const body = a.body || '';
+  const bodyTrim = body.length > 1500 ? body.slice(0, 1500) : body;
+  const bodyMore = body.length > 1500 ? `<details class="mt-2"><summary class="cursor-pointer text-cyan-300 hover:text-cyan-200 text-[11px]">Ver cuerpo completo (${fmtInt(body.length)} caracteres)</summary><pre class="mt-2 text-[12px] text-slate-300 whitespace-pre-wrap leading-relaxed">${escapeHtml(body)}</pre></details>` : '';
+
+  let html = `<div class="px-6 py-5 space-y-5 border-t border-ink-700">
+
+    <!-- Cabecera -->
+    <header>
+      <div class="flex items-baseline gap-3 mb-1 flex-wrap">
+        <span class="font-mono text-[11px] text-slate-500">#${a.id}</span>
+        <span class="font-mono text-[11px] text-slate-400">${escapeHtml(a.source)}</span>
+        <span class="font-mono text-[11px] text-slate-400">${fmtDate(a.published_utc)}</span>
+        ${a.url ? `<a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" class="font-mono text-[11px] text-cyan-300 hover:text-cyan-200 transition">↗ enlace</a>` : ''}
+      </div>
+      <h3 class="text-base font-semibold text-white leading-snug">${escapeHtml(a.title || '(sin título)')}</h3>
+    </header>
+
+    <!-- Pipeline summary -->`;
+
+  if (e) {
+    html += `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="rounded bg-ink-800/60 border border-ink-700 px-3 py-2">
+        <div class="text-[10px] uppercase tracking-wider text-slate-500">Pre-filter</div>
+        <div class="font-mono text-[12px] text-cyan-300">${escapeHtml(e.prefilter_reason || '—')}</div>
+      </div>
+      <div class="rounded bg-ink-800/60 border border-ink-700 px-3 py-2">
+        <div class="text-[10px] uppercase tracking-wider text-slate-500">Max sim score</div>
+        <div class="font-mono text-[12px] text-slate-200">${fmt3(e.max_similarity_score)}</div>
+      </div>
+      <div class="rounded bg-ink-800/60 border border-ink-700 px-3 py-2">
+        <div class="text-[10px] uppercase tracking-wider text-slate-500">TTPs extraídos</div>
+        <div class="font-mono text-[12px] text-slate-200">${fmtInt(e.valid_ttp_count)}</div>
+      </div>
+      <div class="rounded bg-ink-800/60 border border-ink-700 px-3 py-2">
+        <div class="text-[10px] uppercase tracking-wider text-slate-500">Latencia</div>
+        <div class="font-mono text-[12px] text-slate-200">${fmt3(e.elapsed_seconds)}s</div>
+      </div>
+    </div>`;
+  } else if (a.processing_state === 'filtered') {
+    html += `<div class="rounded bg-amber-500/10 border border-amber-400/30 px-4 py-3 text-[12px] text-amber-200">
+      Artículo descartado por el pre-filtro (heurísticas + similitud coseno &lt; 0.55).
+      No pasa al extractor.
+    </div>`;
+  } else {
+    html += `<div class="rounded bg-ink-800/60 border border-ink-700 px-4 py-3 text-[12px] text-slate-400">
+      Sin extracción asociada (estado: ${a.processing_state || 'desconocido'}).
+    </div>`;
+  }
+
+  // TTPs lista
+  if (e && e.ttps_parsed && e.ttps_parsed.length > 0) {
+    html += `<div>
+      <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">TTPs extraídos por Qwen 2.5 14B</div>
+      <div class="space-y-3">`;
+
+    for (const t of e.ttps_parsed) {
+      const v1 = t._v1, v2 = t._v2;
+      const finalAcc = v2 ? (v2.verdict === 'accept') : false;
+      const finalCls = v2
+        ? (v2.verdict === 'accept' ? 'border-emerald-400/40 bg-emerald-500/5' :
+           v2.verdict === 'reject' ? 'border-rose-400/40 bg-rose-500/5' :
+           'border-amber-400/40 bg-amber-500/5')
+        : 'border-ink-700 bg-ink-900/40';
+      const finalBadge = v2
+        ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-mono border ${VERDICT_COLORS[v2.verdict]}">v2: ${v2.verdict}</span>`
+        : '<span class="text-[10px] px-1.5 py-0.5 rounded font-mono border bg-ink-700/50 text-slate-400 border-ink-600">sin v2</span>';
+      const v1Badge = v1
+        ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-mono border ${VERDICT_COLORS[v1.verdict]}">v1: ${v1.verdict}</span>`
+        : '';
+      const subtech = t.subtechnique_id ? `.${escapeHtml(t.subtechnique_id)}` : '';
+      const conf = t.confidence != null ? `<span class="font-mono text-[10px] text-slate-400">conf=${Number(t.confidence).toFixed(2)}</span>` : '';
+
+      html += `<article class="rounded-lg border ${finalCls} px-4 py-3">
+        <div class="flex flex-wrap items-baseline gap-2 mb-2">
+          <span class="font-mono text-cyan-300 text-sm">${escapeHtml(t.technique_id || '?')}${subtech}</span>
+          <span class="font-mono text-[11px] text-slate-500">${escapeHtml(t.tactic_id || '')}</span>
+          ${v1Badge}
+          ${finalBadge}
+          ${conf}
+        </div>
+        ${t.evidence_quote ? `<blockquote class="border-l-2 border-cyan-400/40 pl-3 text-[12px] italic text-slate-200 mb-2 leading-relaxed">"${escapeHtml(t.evidence_quote)}"</blockquote>` : ''}
+        ${v1 && v1.reasoning && v1.model !== 'dry_run' ? `<details class="text-[11px] text-slate-400 mt-1">
+          <summary class="cursor-pointer text-slate-500 hover:text-cyan-300 transition">Razonamiento juez v1 (${escapeHtml(v1.model)})</summary>
+          <div class="mt-1 pl-3 border-l border-ink-700 leading-relaxed">${escapeHtml(v1.reasoning)}</div>
+        </details>` : ''}
+        ${v2 && v2.reasoning ? `<details class="text-[11px] text-slate-400 mt-1">
+          <summary class="cursor-pointer text-slate-500 hover:text-cyan-300 transition">Razonamiento juez v2 (Gemma 4 26B${v2.source_mode ? ` · ${escapeHtml(v2.source_mode)}` : ''})</summary>
+          <div class="mt-1 pl-3 border-l border-emerald-400/40 leading-relaxed">${escapeHtml(v2.reasoning)}</div>
+        </details>` : ''}
+      </article>`;
+    }
+
+    html += `</div></div>`;
+  }
+
+  // Body preview
+  if (body) {
+    html += `<div>
+      <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">Cuerpo del artículo</div>
+      <div class="rounded bg-black/30 border border-ink-700 p-4 text-[12px] text-slate-300 leading-relaxed max-h-72 overflow-y-auto whitespace-pre-wrap">${escapeHtml(bodyTrim)}${body.length > 1500 ? '…' : ''}</div>
+      ${bodyMore}
+    </div>`;
+  }
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+// Carga inicial
+loadArticles();
+</script>
+
+{% endblock %}

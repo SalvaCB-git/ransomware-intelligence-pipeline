@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Ransomware Intelligence Pipeline{% endblock %}</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+          colors: {
+            ink: {
+              900: '#0b1020',
+              800: '#111835',
+              700: '#1a2348',
+              600: '#28335f',
+            },
+          },
+        },
+      },
+    }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" defer></script>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  {% block head_extra %}{% endblock %}
+</head>
+<body class="h-full bg-ink-900 text-slate-100 font-sans antialiased">
+
+<header class="sticky top-0 z-30 border-b border-ink-700 bg-ink-900/85 backdrop-blur">
+  <div class="mx-auto max-w-7xl px-6 py-3 flex items-center gap-6">
+    <a href="{{ url_for('demo_index') }}" class="flex items-center gap-3 group">
+      <span class="grid place-items-center w-9 h-9 rounded-lg bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 font-bold text-sm">RI</span>
+      <span class="hidden sm:flex flex-col leading-tight">
+        <span class="text-sm font-semibold tracking-wide group-hover:text-cyan-300 transition">Ransomware Intelligence</span>
+        <span class="text-[11px] uppercase tracking-[0.18em] text-slate-400">Pipeline · TFG</span>
+      </span>
+    </a>
+
+    <nav class="flex items-center gap-1 text-sm">
+      {% set nav = [
+        ('demo_index', 'Dashboard'),
+        ('pipeline_index', 'Pipeline'),
+        ('corpus_index', 'Corpus'),
+        ('longitudinal_index', 'Longitudinal'),
+        ('arm_index', 'Co-ocurrencia'),
+        ('catalog_lag_index', 'Catalog lag'),
+        ('judge_compare_index', 'Judge v1↔v2'),
+        ('calibration_stats_index', 'Calibración'),
+        ('scraper_index', 'Scraper'),
+      ] %}
+      {% for endpoint, label in nav %}
+        {% set active = request.endpoint == endpoint %}
+        <a href="{{ url_for(endpoint) }}"
+           class="px-3 py-1.5 rounded-md transition
+                  {% if active %}bg-cyan-500/15 text-cyan-300 ring-1 ring-cyan-400/30
+                  {% else %}text-slate-300 hover:text-white hover:bg-ink-700/60{% endif %}">
+          {{ label }}
+        </a>
+      {% endfor %}
+    </nav>
+
+    <div class="ml-auto flex items-center gap-3">
+      <div id="pc-indicator"
+           class="flex items-center gap-2 px-3 py-1.5 rounded-md border border-ink-600 bg-ink-800/60 text-xs"
+           data-status="unknown"
+           title="Estado del PC con GPU (extractor RAG)">
+        <span id="pc-led" class="relative flex w-2.5 h-2.5">
+          <span class="absolute inset-0 rounded-full bg-slate-500"></span>
+        </span>
+        <span class="font-medium text-slate-300">PC</span>
+        <span id="pc-status-label" class="text-slate-400">…</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-6 py-10">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="border-t border-ink-700/70 mt-16">
+  <div class="mx-auto max-w-7xl px-6 py-6 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+    <span>TFG · Salvador Cascón Bertomeu · 2026</span>
+    <span class="font-mono">{{ build_tag or 'demo' }}</span>
+  </div>
+</footer>
+
+<script src="{{ url_for('static', filename='js/heartbeat.js') }}" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

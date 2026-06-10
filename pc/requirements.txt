@@ -1,0 +1,30 @@
+# pc/ requirements — pinned to versions verified on Linux Mint 22, Python 3.11, CUDA 13.1
+# Source: pip freeze del venv real del PC al cerrar la auditoría pre-entrega.
+# Las deps transitivas (incluyendo nvidia-cuda-* y el árbol completo de torch)
+# las resuelve pip automáticamente desde estas top-level.
+
+# ── Cliente HTTP + config ─────────────────────────────────────────
+requests==2.32.5
+python-dotenv==1.2.2
+
+# ── RAG + embeddings (build_index, prefilter, rag_extractor) ──────
+# chromadb 1.5.5: advisory CRITICAL GHSA-f4j7-r4q5-qw2c (pre-auth code injection)
+# sin versión corregida publicada. Exposición práctica reducida: aquí se usa el
+# cliente EMBEBIDO local (PersistentClient, sin servidor expuesto a red).
+# Se monitoriza el advisory; bump cuando exista fix.
+chromadb==1.5.5
+sentence-transformers==5.3.0
+transformers==5.3.0
+tokenizers==0.22.2
+safetensors==0.7.0
+huggingface_hub==1.7.1
+torch==2.10.0
+
+# ── Numérico + análisis (compute_alpha, benchmark, prefilter) ─────
+numpy==2.4.3
+scipy==1.17.1
+scikit-learn==1.8.0
+krippendorff==0.8.2
+
+# ── UX (barras de progreso en CLIs largas) ────────────────────────
+tqdm==4.67.3

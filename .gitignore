@@ -1,0 +1,36 @@
+# Secretos y configuración local (NUNCA versionar)
+.env*
+!.env.example
+pc/.env
+*.key
+
+# Artefactos regenerables
+outputs/
+__pycache__/
+*.pyc
+.scrapy/
+*.log
+pc/*.log
+.pytest_cache/
+
+# Entornos virtuales
+scrapy_project/venv/
+scrapy_project/bcddg/.scrapy/
+pc/venv/
+pc/__pycache__/
+pc/mitre_index/
+.venv-dev/
+.venv-analysis/
+.venv-validation/
+
+# Bases de datos: se ignoran TODAS salvo el snapshot versionado.
+# data/ransomware_intel.db es un snapshot reproducible SIN articles.body
+# (ver data/README.md); la BD canónica completa vive fuera del repositorio.
+data/*.db
+data/*.db-shm
+data/*.db-wal
+!data/ransomware_intel.db
+
+# Misceláneo
+*.docx
+*.bak-*

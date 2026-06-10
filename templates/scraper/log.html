@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Log · {{ name }}{% endblock %}
+{% block head_extra %}
+<meta http-equiv="refresh" content="4">
+{% endblock %}
+
+{% block content %}
+<section class="mb-4 flex items-end gap-3 flex-wrap">
+  <div>
+    <div class="text-[11px] uppercase tracking-[0.18em] text-cyan-300/80 font-semibold mb-1">Log file</div>
+    <h1 class="text-2xl font-semibold text-white font-mono">{{ name }}</h1>
+  </div>
+  <div class="ml-auto flex items-center gap-2 text-[11px]">
+    <a href="{{ url_for('scraper_index') }}"
+       class="font-mono uppercase tracking-wider px-3 py-1.5 rounded-md border border-ink-600 text-slate-200 hover:border-cyan-400 hover:text-cyan-300 transition">
+      ← Volver al panel
+    </a>
+    <span class="font-mono px-3 py-1.5 rounded-md border border-ink-700 bg-ink-800/60 text-slate-400">auto-refresh 4s</span>
+  </div>
+</section>
+
+<section class="rounded-2xl border border-ink-700 bg-black/50 overflow-hidden">
+  <pre id="log" class="font-mono text-[11.5px] leading-relaxed text-slate-300 p-4 max-h-[78vh] overflow-y-auto whitespace-pre-wrap break-words">{{ content | safe }}</pre>
+</section>
+
+<script>window.scrollTo(0, document.body.scrollHeight);</script>
+{% endblock %}

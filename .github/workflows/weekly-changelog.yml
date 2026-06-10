@@ -1,0 +1,98 @@
+name: Weekly Changelog
+
+on:
+  schedule:
+    # Every Monday at 08:00 UTC
+    - cron: '0 8 * * 1'
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history needed for git log
+
+      - name: Generate weekly report
+        id: report
+        run: |
+          # Date range: last 7 days
+          SINCE=$(date -d '7 days ago' '+%Y-%m-%d')
+          TODAY=$(date '+%Y-%m-%d')
+
+          # Count commits
+          COMMIT_COUNT=$(git log --since="$SINCE" --oneline | wc -l)
+
+          # Build report body into a file (avoids escaping issues)
+          REPORT_FILE=$(mktemp)
+
+          cat > "$REPORT_FILE" << 'HEADER'
+          ## Ransomware Intelligence Pipeline — Weekly Report
+          HEADER
+
+          echo "**Period:** ${SINCE} to ${TODAY}" >> "$REPORT_FILE"
+          echo "**Total commits:** ${COMMIT_COUNT}" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+
+          # --- Commits section ---
+          echo "### Commits" >> "$REPORT_FILE"
+          if [ "$COMMIT_COUNT" -eq 0 ]; then
+            echo "No commits this week." >> "$REPORT_FILE"
+          else
+            git log --since="$SINCE" --format="- **%h** %s (%an, %ad)" --date=short >> "$REPORT_FILE"
+          fi
+          echo "" >> "$REPORT_FILE"
+
+          # --- Files changed section ---
+          echo "### Files changed" >> "$REPORT_FILE"
+          CHANGED_FILES=$(git diff --name-only "HEAD@{7 days ago}" HEAD 2>/dev/null || git log --since="$SINCE" --name-only --format="" | sort -u)
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No files changed." >> "$REPORT_FILE"
+          else
+            echo "$CHANGED_FILES" | while read -r f; do
+              echo "- \`$f\`" >> "$REPORT_FILE"
+            done
+          fi
+          echo "" >> "$REPORT_FILE"
+
+          # --- Spiders section ---
+          echo "### Spider inventory" >> "$REPORT_FILE"
+          SPIDER_COUNT=$(find scrapy_project/bcddg/bcddg/spiders -name '*.py' ! -name '__init__.py' 2>/dev/null | wc -l)
+          echo "Total spider files in repo: **${SPIDER_COUNT}**" >> "$REPORT_FILE"
+          echo "" >> "$REPORT_FILE"
+
+          echo "New or modified spiders this week:" >> "$REPORT_FILE"
+          MODIFIED_SPIDERS=$(git log --since="$SINCE" --name-only --format="" -- 'scrapy_project/bcddg/bcddg/spiders/*.py' | sort -u)
+          if [ -z "$MODIFIED_SPIDERS" ]; then
+            echo "- None" >> "$REPORT_FILE"
+          else
+            echo "$MODIFIED_SPIDERS" | while read -r f; do
+              echo "- \`$(basename $f)\`" >> "$REPORT_FILE"
+            done
+          fi
+          echo "" >> "$REPORT_FILE"
+
+          # --- Reminder section ---
+          echo "### Notes" >> "$REPORT_FILE"
+          echo "This issue was generated automatically by the Weekly Changelog workflow." >> "$REPORT_FILE"
+          echo "If Dependabot PRs are open, review and merge or close them." >> "$REPORT_FILE"
+
+          # Pass file path to next step
+          echo "report_file=$REPORT_FILE" >> "$GITHUB_OUTPUT"
+          echo "date_range=${SINCE} → ${TODAY}" >> "$GITHUB_OUTPUT"
+          echo "commit_count=${COMMIT_COUNT}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub issue
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "Weekly changelog: ${{ steps.report.outputs.date_range }} (${{ steps.report.outputs.commit_count }} commits)"
+          content-filepath: ${{ steps.report.outputs.report_file }}
+          labels: |
+            changelog
+            automated

@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+{% block title %}Catalog Lag · TFG{% endblock %}
+
+{% block content %}
+
+{# ── Header ── #}
+<section class="mb-10">
+  <div class="flex items-baseline gap-3 mb-2">
+    <span class="text-xs uppercase tracking-[0.2em] text-cyan-300/80 font-semibold">Latencia de catalogacion</span>
+    <span class="h-px flex-1 bg-gradient-to-r from-cyan-400/40 to-transparent"></span>
+  </div>
+  <h1 class="text-3xl sm:text-4xl font-semibold leading-tight text-white">
+    Catalog lag: corpus vs MITRE ATT&CK
+  </h1>
+  <p class="mt-3 max-w-3xl text-slate-400">
+    Analisis de latencia entre la primera aparicion de una tecnica en el corpus y su fecha de
+    catalogacion en MITRE ATT&CK Enterprise. Basado en 290 tecnicas (accept v2, excl.
+    <span class="font-mono">crowdstrike_blog</span>).
+  </p>
+</section>
+
+{# ── D1 caveat banner ── #}
+<div class="mb-8 rounded-xl border border-amber-500/40 bg-amber-500/10 px-5 py-4">
+  <div class="flex items-start gap-3">
+    <span class="mt-0.5 text-amber-400 text-lg font-bold shrink-0">!</span>
+    <div>
+      <p class="text-sm font-semibold text-amber-200">Caveat D1 &mdash; Data leakage</p>
+      <p class="mt-1 text-sm text-amber-100/80">
+        El ChromaDB que alimenta la extraccion RAG fue construido el 2026-03-15 con el bundle
+        contemporaneo de ATT&CK. Por tanto el extractor <em>ya conocia</em> las tecnicas que MITRE
+        introdujo en 2024-2025. Este analisis mide <strong>latencia de catalogacion</strong> (cuanto tardo MITRE
+        en publicar una tecnica que el ecosistema ya describia), <strong>no</strong> capacidad predictiva de early
+        warning del pipeline.
+      </p>
+    </div>
+  </div>
+</div>
+
+{# ── KPI strip ── #}
+<section id="kpi-strip" class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-12">
+  <article class="rounded-xl border border-ink-700 bg-ink-800/60 p-4 text-center">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 font-semibold mb-1">Tecnicas corpus</div>
+    <div id="kpi-total" class="font-mono text-2xl text-cyan-300">--</div>
+  </article>
+  <article class="rounded-xl border border-ink-700 bg-ink-800/60 p-4 text-center">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 font-semibold mb-1">Lag positivo</div>
+    <div id="kpi-positive" class="font-mono text-2xl text-emerald-300">--</div>
+    <div id="kpi-positive-pct" class="text-[11px] text-slate-500 font-mono"></div>
+  </article>
+  <article class="rounded-xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-4 text-center">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80 font-semibold mb-1">Strict subset</div>
+    <div id="kpi-strict" class="font-mono text-2xl text-cyan-300">--</div>
+    <div class="text-[11px] text-slate-500">min>0 &amp; med>0 &amp; N&ge;3 &amp; src&ge;2</div>
+  </article>
+  <article class="rounded-xl border border-ink-700 bg-ink-800/60 p-4 text-center">
+    <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 font-semibold mb-1">Post-corpus MITRE</div>
+    <div id="kpi-post" class="font-mono text-2xl text-slate-300">--</div>
+  </article>
+</section>
+
+{# ── Histogram ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <header class="flex items-baseline justify-between mb-1">
+    <h2 class="text-lg font-semibold text-white">Distribucion de catalog lag (release days)</h2>
+    <span class="text-[11px] font-mono text-slate-500">all_techniques.csv &middot; 290 tecnicas</span>
+  </header>
+  <p class="text-sm text-slate-400 mb-4">
+    Valores negativos: la tecnica aparecio en el corpus <em>despues</em> de su catalogacion MITRE.
+    Valores positivos: aparecio en el corpus <em>antes</em>. Bins de 200 dias.
+  </p>
+  <div class="h-72 relative"><canvas id="chart-histogram"></canvas></div>
+</section>
+
+{# ── Strict table ── #}
+<section class="rounded-2xl border border-cyan-400/20 bg-ink-800/60 p-6 mb-6">
+  <header class="mb-1">
+    <h2 class="text-lg font-semibold text-white">Hallazgo publicable &mdash; 4 tecnicas strict</h2>
+    <p class="text-sm text-slate-400 mt-1">
+      Tecnicas donde <span class="font-mono text-cyan-300">lag_min &gt; 0</span>,
+      <span class="font-mono text-cyan-300">lag_median &gt; 0</span>,
+      <span class="font-mono text-cyan-300">N &ge; 3</span> y
+      <span class="font-mono text-cyan-300">sources &ge; 2</span>.
+      El corpus las menciono consistentemente antes de que MITRE las catalogara.
+    </p>
+  </header>
+  <div class="overflow-x-auto mt-4">
+    <table class="w-full text-[12px]">
+      <thead>
+        <tr class="text-[10px] uppercase tracking-[0.16em] text-slate-500 border-b border-ink-700">
+          <th class="text-left py-2 pr-2 font-medium">ID</th>
+          <th class="text-left py-2 pr-2 font-medium">Nombre</th>
+          <th class="text-right py-2 pr-2 font-medium">Lag min (d)</th>
+          <th class="text-right py-2 pr-2 font-medium">Lag med (d)</th>
+          <th class="text-right py-2 pr-2 font-medium">N</th>
+          <th class="text-right py-2 pr-2 font-medium">Fuentes</th>
+          <th class="text-left py-2 pr-2 font-medium">1a vista corpus</th>
+          <th class="text-left py-2 pr-2 font-medium">MITRE release</th>
+          <th class="text-left py-2 pr-2 font-medium">1a fuente</th>
+        </tr>
+      </thead>
+      <tbody id="strict-tbody" class="divide-y divide-ink-700/50 font-mono"></tbody>
+    </table>
+  </div>
+</section>
+
+{# ── Positive lag (collapsible) ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <details>
+    <summary class="cursor-pointer select-none">
+      <h2 class="inline text-lg font-semibold text-white">Todas las tecnicas con lag positivo</h2>
+      <span id="positive-count" class="ml-2 text-sm font-mono text-slate-500"></span>
+    </summary>
+    <p class="text-sm text-slate-400 mt-2 mb-4">
+      Tecnicas cuyo <span class="font-mono">catalog_lag_release_days &gt; 0</span>.
+      Incluye outliers con mera primera mencion previa pero masa post-MITRE.
+    </p>
+    <div class="overflow-x-auto">
+      <table class="w-full text-[12px]">
+        <thead>
+          <tr class="text-[10px] uppercase tracking-[0.16em] text-slate-500 border-b border-ink-700">
+            <th class="text-left py-2 pr-2 font-medium">ID</th>
+            <th class="text-left py-2 pr-2 font-medium">Nombre</th>
+            <th class="text-right py-2 pr-2 font-medium">Lag min (d)</th>
+            <th class="text-right py-2 pr-2 font-medium">Lag med (d)</th>
+            <th class="text-right py-2 pr-2 font-medium">N</th>
+            <th class="text-right py-2 pr-2 font-medium">Fuentes</th>
+            <th class="text-left py-2 pr-2 font-medium">1a vista corpus</th>
+            <th class="text-left py-2 pr-2 font-medium">MITRE release</th>
+            <th class="text-left py-2 pr-2 font-medium">1a fuente</th>
+          </tr>
+        </thead>
+        <tbody id="positive-tbody" class="divide-y divide-ink-700/50 font-mono"></tbody>
+      </table>
+    </div>
+  </details>
+</section>
+
+{# ── Modes of failure ── #}
+<section class="rounded-2xl border border-orange-400/20 bg-ink-800/60 p-6 mb-6">
+  <header class="mb-1">
+    <h2 class="text-lg font-semibold text-white">Modos de fallo &mdash; outlier inicial</h2>
+    <p class="text-sm text-slate-400 mt-1">
+      Tecnicas con <span class="font-mono text-orange-300">lag_min &gt; 0</span> pero
+      <span class="font-mono text-orange-300">lag_median &lt; 0</span>: la primera mencion fue
+      pre-MITRE pero la masa de menciones es posterior. La deteccion temprana es un artefacto
+      de un unico articulo outlier, no una senal consistente.
+    </p>
+  </header>
+  <div class="overflow-x-auto mt-4">
+    <table class="w-full text-[12px]">
+      <thead>
+        <tr class="text-[10px] uppercase tracking-[0.16em] text-slate-500 border-b border-ink-700">
+          <th class="text-left py-2 pr-2 font-medium">ID</th>
+          <th class="text-left py-2 pr-2 font-medium">Nombre</th>
+          <th class="text-right py-2 pr-2 font-medium">Lag min (d)</th>
+          <th class="text-right py-2 pr-2 font-medium">Lag med (d)</th>
+          <th class="text-right py-2 pr-2 font-medium">N</th>
+          <th class="text-right py-2 pr-2 font-medium">Fuentes</th>
+          <th class="text-left py-2 pr-2 font-medium">Sources</th>
+        </tr>
+      </thead>
+      <tbody id="outliers-tbody" class="divide-y divide-ink-700/50 font-mono"></tbody>
+    </table>
+  </div>
+</section>
+
+{# ── Binomial test ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <header class="mb-1">
+    <h2 class="text-lg font-semibold text-white">Test binomial: post-corpus techniques</h2>
+  </header>
+  <div id="binomial-result" class="mt-4 text-sm text-slate-300 space-y-2"></div>
+</section>
+
+{# ── Revoked techniques (collapsible) ── #}
+<section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
+  <details>
+    <summary class="cursor-pointer select-none">
+      <h2 class="inline text-lg font-semibold text-white">Tecnicas revocadas</h2>
+      <span id="revoked-count" class="ml-2 text-sm font-mono text-slate-500"></span>
+    </summary>
+    <p class="text-sm text-slate-400 mt-2 mb-4">
+      Tecnicas presentes en el corpus cuya ultima version en ATT&CK esta marcada como revocada.
+    </p>
+    <div class="overflow-x-auto">
+      <table class="w-full text-[12px]">
+        <thead>
+          <tr class="text-[10px] uppercase tracking-[0.16em] text-slate-500 border-b border-ink-700">
+            <th class="text-left py-2 pr-2 font-medium">ID</th>
+            <th class="text-left py-2 pr-2 font-medium">Nombre</th>
+            <th class="text-right py-2 pr-2 font-medium">N</th>
+            <th class="text-right py-2 pr-2 font-medium">Fuentes</th>
+            <th class="text-left py-2 pr-2 font-medium">1a vista corpus</th>
+            <th class="text-left py-2 pr-2 font-medium">Revoked version</th>
+          </tr>
+        </thead>
+        <tbody id="revoked-tbody" class="divide-y divide-ink-700/50 font-mono"></tbody>
+      </table>
+    </div>
+  </details>
+</section>
+
+<section class="text-xs text-slate-500 mb-12">
+  Datos generados por <span class="font-mono text-slate-400">mitre_catalog_lag.py</span> sobre BD
+  <span class="font-mono text-slate-400">data/ransomware_intel.db</span>.
+  Regenerar con <span class="font-mono">python3 mitre_catalog_lag.py</span>.
+</section>
+
+<script>
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function mitreLink(tid) {
+  const base = 'https://attack.mitre.org/techniques/';
+  const path = tid.replace('.', '/');
+  return `<a href="${base}${path}" target="_blank" rel="noopener"
+             class="text-cyan-300 hover:text-cyan-200 underline decoration-cyan-400/30">${tid}</a>`;
+}
+
+function fmtDate(v) {
+  if (!v) return '<span class="text-slate-600">--</span>';
+  return `<span class="text-slate-300">${v.slice(0, 10)}</span>`;
+}
+
+function lagCell(v) {
+  const n = parseInt(v, 10);
+  if (isNaN(n)) return '<span class="text-slate-600">--</span>';
+  const cls = n > 0 ? 'text-emerald-300' : (n < 0 ? 'text-rose-300' : 'text-slate-400');
+  return `<span class="${cls}">${n.toLocaleString()}</span>`;
+}
+
+const COMMON_OPTS = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color: '#cbd5e1', font: { size: 11 } } },
+    tooltip: { backgroundColor: '#0b1020', borderColor: '#1a2348', borderWidth: 1, padding: 10 },
+  },
+  scales: {
+    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.06)' } },
+    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.06)' } },
+  },
+};
+
+// ── Build technique table row ────────────────────────────────────────────────
+function techRow(r) {
+  return `<tr class="hover:bg-ink-700/30">
+    <td class="py-1.5 pr-2">${mitreLink(r.technique_id)}</td>
+    <td class="py-1.5 pr-2 text-slate-300 font-sans text-[12px]">${r.name || ''}</td>
+    <td class="py-1.5 pr-2 text-right">${lagCell(r.catalog_lag_release_days)}</td>
+    <td class="py-1.5 pr-2 text-right">${lagCell(r.catalog_lag_release_median_days)}</td>
+    <td class="py-1.5 pr-2 text-right text-slate-300">${r.accept_count || r.n_articles || '--'}</td>
+    <td class="py-1.5 pr-2 text-right text-slate-300">${r.n_sources || '--'}</td>
+    <td class="py-1.5 pr-2">${fmtDate(r.first_seen_corpus)}</td>
+    <td class="py-1.5 pr-2">${fmtDate(r.mitre_first_release_date)}</td>
+    <td class="py-1.5 pr-2 text-slate-400 font-sans text-[11px]">${r.first_seen_source || '--'}</td>
+  </tr>`;
+}
+
+// ── Bootstrap ────────────────────────────────────────────────────────────────
+function waitForChart(cb) {
+  if (typeof Chart !== 'undefined') return cb();
+  setTimeout(() => waitForChart(cb), 50);
+}
+
+waitForChart(() => {
+  fetch('/api/catalog-lag/data', { cache: 'no-store' })
+    .then(r => r.json())
+    .then(data => {
+      renderKPIs(data.summary);
+      renderHistogram(data.histogram);
+      renderStrict(data.strict);
+      renderPositive(data.positive);
+      renderOutliers(data.outliers);
+      renderBinomial(data.summary);
+      renderRevoked(data.revoked);
+    })
+    .catch(err => console.error('catalog-lag data error', err));
+});
+
+// ── KPIs ─────────────────────────────────────────────────────────────────────
+function renderKPIs(s) {
+  document.getElementById('kpi-total').textContent = s.n_total_techniques;
+  document.getElementById('kpi-positive').textContent = s.n_positive_lag;
+  document.getElementById('kpi-positive-pct').textContent =
+    `${((s.n_positive_lag / s.n_total_techniques) * 100).toFixed(1)}%`;
+  document.getElementById('kpi-strict').textContent = s.n_strict;
+  document.getElementById('kpi-post').textContent = s.n_post_corpus_start;
+}
+
+// ── Histogram ────────────────────────────────────────────────────────────────
+function renderHistogram(h) {
+  const labels = [];
+  for (let i = 0; i < h.edges.length - 1; i++) {
+    labels.push(`${h.edges[i]}`);
+  }
+  const colors = h.counts.map((_, i) => {
+    const mid = (h.edges[i] + h.edges[i + 1]) / 2;
+    if (mid > 0) return 'rgba(52, 211, 153, 0.7)';   // emerald for positive lag
+    if (mid === 0) return 'rgba(148, 163, 184, 0.5)'; // slate for zero
+    return 'rgba(34, 211, 238, 0.5)';                 // cyan for negative
+  });
+  new Chart(document.getElementById('chart-histogram'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Tecnicas',
+        data: h.counts,
+        backgroundColor: colors,
+        borderRadius: 2,
+      }],
+    },
+    options: {
+      ...COMMON_OPTS,
+      plugins: {
+        ...COMMON_OPTS.plugins,
+        legend: { display: false },
+        tooltip: {
+          ...COMMON_OPTS.plugins.tooltip,
+          callbacks: {
+            title: (items) => {
+              const i = items[0].dataIndex;
+              return `${h.edges[i]} a ${h.edges[i + 1]} dias`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: '#94a3b8', maxRotation: 45, font: { size: 10 } },
+          grid: { color: 'rgba(148,163,184,0.06)' },
+          title: { display: true, text: 'catalog_lag_release_days', color: '#64748b', font: { size: 11 } },
+        },
+        y: {
+          ticks: { color: '#94a3b8' },
+          grid: { color: 'rgba(148,163,184,0.06)' },
+          title: { display: true, text: 'Tecnicas', color: '#64748b', font: { size: 11 } },
+        },
+      },
+    },
+  });
+}
+
+// ── Strict table ─────────────────────────────────────────────────────────────
+function renderStrict(rows) {
+  const sorted = [...rows].sort((a, b) =>
+    parseInt(b.catalog_lag_release_days) - parseInt(a.catalog_lag_release_days));
+  document.getElementById('strict-tbody').innerHTML = sorted.map(techRow).join('');
+}
+
+// ── Positive lag table ───────────────────────────────────────────────────────
+function renderPositive(rows) {
+  document.getElementById('positive-count').textContent = `(${rows.length} tecnicas)`;
+  const sorted = [...rows].sort((a, b) =>
+    parseInt(b.catalog_lag_release_days) - parseInt(a.catalog_lag_release_days));
+  document.getElementById('positive-tbody').innerHTML = sorted.map(techRow).join('');
+}
+
+// ── Outliers (modes of failure) ──────────────────────────────────────────────
+function renderOutliers(rows) {
+  if (!rows || rows.length === 0) {
+    document.getElementById('outliers-tbody').innerHTML =
+      '<tr><td colspan="7" class="py-4 text-center text-slate-500">Sin datos</td></tr>';
+    return;
+  }
+  document.getElementById('outliers-tbody').innerHTML = rows.map(r => `
+    <tr class="hover:bg-ink-700/30">
+      <td class="py-1.5 pr-2">${mitreLink(r.technique_id)}</td>
+      <td class="py-1.5 pr-2 text-slate-300 font-sans text-[12px]">${r.name || ''}</td>
+      <td class="py-1.5 pr-2 text-right">${lagCell(String(r.lag_min))}</td>
+      <td class="py-1.5 pr-2 text-right">${lagCell(String(r.lag_median))}</td>
+      <td class="py-1.5 pr-2 text-right text-slate-300">${r.accept_count || '--'}</td>
+      <td class="py-1.5 pr-2 text-right text-slate-300">${r.n_sources || '--'}</td>
+      <td class="py-1.5 pr-2 text-slate-400 font-sans text-[11px]">
+        ${(r.sources || '').split(',').map(s =>
+          `<span class="inline-block px-1.5 py-0.5 mr-1 mb-0.5 rounded bg-orange-500/10 text-orange-300 border border-orange-400/20 text-[10px]">${s.trim()}</span>`
+        ).join('')}
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ── Binomial test ────────────────────────────────────────────────────────────
+function renderBinomial(s) {
+  const rate = s.binomial_observed_rate;
+  const p = s.binomial_p_value;
+  const k = s.n_post_positive;
+  const n = s.n_post_corpus_start;
+  const pctStr = rate != null ? (rate * 100).toFixed(1) : '--';
+  const pStr = p != null ? p.toFixed(4) : '--';
+  const sig = p != null && p < 0.05;
+
+  document.getElementById('binomial-result').innerHTML = `
+    <p>
+      De las <span class="font-mono text-cyan-300">${n}</span> tecnicas introducidas por MITRE
+      despues del inicio del corpus,
+      <span class="font-mono text-emerald-300">${k}</span> aparecen con lag positivo
+      (<span class="font-mono">${pctStr}%</span>).
+    </p>
+    <p>
+      Test binomial exacto (H<sub>0</sub>: p = 0.5, one-sided):
+      <span class="font-mono ${sig ? 'text-emerald-300' : 'text-amber-300'}">p = ${pStr}</span>
+    </p>
+    <div class="mt-3 rounded-lg border ${sig ? 'border-emerald-400/30 bg-emerald-500/10' : 'border-amber-400/30 bg-amber-500/10'} px-4 py-3">
+      ${sig
+        ? '<p class="text-emerald-200 text-sm font-semibold">Resultado significativo (p < 0.05)</p>'
+        : `<p class="text-amber-200 text-sm font-semibold">Resultado NO significativo (p = ${pStr} >> 0.05)</p>
+           <p class="text-amber-100/70 text-sm mt-1">
+             No podemos rechazar H<sub>0</sub>. La proporcion observada (${pctStr}%) no difiere
+             significativamente del 50% esperado por azar. El corpus no demuestra capacidad
+             sistematica de anticiparse a la catalogacion de MITRE para tecnicas post-corpus.
+           </p>`
+      }
+    </div>
+  `;
+}
+
+// ── Revoked table ────────────────────────────────────────────────────────────
+function renderRevoked(rows) {
+  document.getElementById('revoked-count').textContent = `(${rows.length} tecnicas)`;
+  if (!rows || rows.length === 0) {
+    document.getElementById('revoked-tbody').innerHTML =
+      '<tr><td colspan="6" class="py-4 text-center text-slate-500">Sin datos</td></tr>';
+    return;
+  }
+  document.getElementById('revoked-tbody').innerHTML = rows.map(r => `
+    <tr class="hover:bg-ink-700/30">
+      <td class="py-1.5 pr-2">${mitreLink(r.technique_id)}</td>
+      <td class="py-1.5 pr-2 text-slate-300 font-sans text-[12px]">${r.name || ''}</td>
+      <td class="py-1.5 pr-2 text-right text-slate-300">${r.accept_count || r.n_articles || '--'}</td>
+      <td class="py-1.5 pr-2 text-right text-slate-300">${r.n_sources || '--'}</td>
+      <td class="py-1.5 pr-2">${fmtDate(r.first_seen_corpus)}</td>
+      <td class="py-1.5 pr-2 text-slate-400">${r.mitre_latest_x_version || '--'}</td>
+    </tr>
+  `).join('');
+}
+</script>
+
+{% endblock %}

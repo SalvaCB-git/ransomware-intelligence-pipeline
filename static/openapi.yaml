@@ -1,0 +1,498 @@
+openapi: 3.0.3
+info:
+  title: Ransomware Intelligence Pipeline — API
+  version: "1.0"
+  description: >
+    API del servidor Flask del TFG *Ransomware Intelligence Pipeline*.
+
+    El sistema es **cerrado**, con un único cliente conocido (el PC con GPU,
+    carpeta `pc/` del repo). Por eso la API no usa versionado en la URL
+    (`/api/...` sin `/v1/`): servidor y cliente se versionan juntos en git.
+
+    **Autenticación.** Los 13 endpoints de **mutación** exigen HTTP Basic Auth
+    (esquema `basicAuth`). Las páginas y APIs **read-only** son públicas por
+    diseño (el tribunal consulta la demo sin credenciales). El Basic Auth de
+    Flask corre en modo *pass-through* si `BASIC_AUTH_USER`/`PASS` no están
+    definidos; la barrera imprescindible es el sellado del puerto a
+    `127.0.0.1:7000` + el Basic Auth del NPM frontal.
+
+    Spec escrita a mano (no generada) y servida vía Swagger UI por CDN en
+    `/api/docs`, coherente con el stack sin build tooling del proyecto.
+  contact:
+    name: Salvador Cascón Bertomeu
+
+servers:
+  - url: /
+    description: Mismo host (detrás del NPM frontal con TLS)
+
+tags:
+  - name: scraper
+    description: Orquestación de spiders y preprocess
+  - name: ttps
+    description: Pipeline de extracción de TTPs (cliente PC)
+  - name: judge
+    description: Validación LLM-as-a-judge (v1)
+  - name: calibration
+    description: Anotación humana y calibración
+  - name: demo
+    description: Pipeline en vivo y bridge PC↔servidor
+  - name: corpus
+    description: Exploración del corpus de artículos
+  - name: analytics
+    description: Dashboards y bundles de datos (longitudinal, ARM, juez, catalog-lag)
+  - name: docs
+    description: Documentación de la API
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: >
+        Credenciales `BASIC_AUTH_USER` / `BASIC_AUTH_PASS`. Validadas con
+        `hmac.compare_digest` (comparación en tiempo constante).
+  responses:
+    Unauthorized:
+      description: Falta o es inválida la credencial Basic Auth.
+    InternalError:
+      description: 'Error interno. El cliente recibe `{"ok": false, "error": "internal_error"}`; el traceback va al log del servidor.'
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              ok: { type: boolean, example: false }
+              error: { type: string, example: internal_error }
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer }
+      description: Número de elementos a reservar/devolver (con tope interno).
+
+paths:
+  /:
+    get:
+      tags: [scraper]
+      summary: Panel principal del scraper
+      description: Chips de spiders, run/stop, historial y ficheros de salida.
+      responses:
+        "200": { description: Página HTML del panel. }
+
+  /run:
+    post:
+      tags: [scraper]
+      summary: Lanza los spiders seleccionados
+      description: Encola en un thread los spiders elegidos (o todos si no se eligen).
+      security: [{ basicAuth: [] }]
+      responses:
+        "200": { description: Cola lanzada. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /stop:
+    post:
+      tags: [scraper]
+      summary: Solicita parada de la cola
+      description: Marca `stop_requested`; la cola para al terminar el spider en curso.
+      security: [{ basicAuth: [] }]
+      responses:
+        "200": { description: Parada solicitada. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /upload_spider:
+    post:
+      tags: [scraper]
+      summary: Sube un fichero .py de spider
+      description: Escribe el .py en el directorio de spiders (montado como volumen).
+      security: [{ basicAuth: [] }]
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200": { description: Spider subido. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /trigger/preprocess:
+    post:
+      tags: [scraper]
+      summary: Lanza preprocess.py manualmente
+      security: [{ basicAuth: [] }]
+      responses:
+        "200": { description: Preprocess lanzado en thread daemon. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /log/{filename}:
+    get:
+      tags: [scraper]
+      summary: Visor HTML de un fichero de log
+      description: Coloreado y HTML-escapado, con defensa anti path-traversal.
+      parameters:
+        - { name: filename, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Página HTML del log. }
+        "404": { description: Fichero no encontrado o ruta inválida. }
+
+  /download/{filename}:
+    get:
+      tags: [scraper]
+      summary: Descarga un CSV de outputs/
+      parameters:
+        - { name: filename, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Fichero como attachment. }
+        "404": { description: No encontrado. }
+
+  /api/status:
+    get:
+      tags: [scraper]
+      summary: Estado del job en memoria
+      responses:
+        "200":
+          description: Dict `job_state` como JSON.
+          content: { application/json: { schema: { type: object } } }
+
+  /api/ttps/acquire_batch:
+    get:
+      tags: [ttps]
+      summary: Reserva un lote de artículos pending
+      description: >
+        **GET que MUTA estado** (decisión consciente, no REST-puro): dentro de
+        `BEGIN EXCLUSIVE` libera huérfanos (lock > 3h) y marca hasta N artículos
+        como `processing`. Máximo 200.
+      security: [{ basicAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/Limit" }]
+      responses:
+        "200":
+          description: Lote de artículos reservados.
+          content: { application/json: { schema: { type: object } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/ttps/commit_batch:
+    post:
+      tags: [ttps]
+      summary: Guarda extracciones y actualiza processing_state
+      description: INSERT en `extractions` + UPDATE de `processing_state` (completed/filtered/failed) en una transacción.
+      security: [{ basicAuth: [] }]
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        "200":
+          description: Lote confirmado.
+          content: { application/json: { schema: { type: object } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/judge/acquire_batch:
+    get:
+      tags: [judge]
+      summary: Devuelve TTPs conf=0.75 no juzgados
+      description: Solo lectura (no muta), pero protegido con auth como el resto del pipeline. Máximo 100.
+      security: [{ basicAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/Limit" }]
+      responses:
+        "200": { description: Lote de TTPs a juzgar. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/judge/commit_batch:
+    post:
+      tags: [judge]
+      summary: Guarda veredictos del juez v1 (idempotente)
+      description: INSERT OR IGNORE en `ttp_verdicts` (UNIQUE extraction_id, ttp_index).
+      security: [{ basicAuth: [] }]
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        "200": { description: Veredictos guardados. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /calibration:
+    get:
+      tags: [calibration]
+      summary: UI ciega de anotación (mobile-first)
+      responses:
+        "200": { description: Página HTML de anotación. }
+
+  /api/calibration/stats:
+    get:
+      tags: [calibration]
+      summary: Progreso de la anotación humana
+      responses:
+        "200": { description: total/done/control/acuerdo crudo. }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/calibration/next:
+    get:
+      tags: [calibration]
+      summary: Siguiente TTP sin veredicto humano (fase ciega)
+      responses:
+        "200": { description: TTP a anotar (sin mostrar el veredicto LLM). }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/calibration/article/{article_id}:
+    get:
+      tags: [calibration]
+      summary: Body completo del artículo
+      parameters:
+        - { name: article_id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: Texto del artículo. }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/calibration/verdict:
+    post:
+      tags: [calibration]
+      summary: Guarda el voto ciego humano
+      description: UPDATE del `human_blind_verdict`; devuelve el `llm_verdict`/`llm_reasoning`.
+      security: [{ basicAuth: [] }]
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        "200": { description: Voto guardado. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/calibration/reconcile:
+    post:
+      tags: [calibration]
+      summary: Guarda el código de error E1-E5 y la reconciliación
+      security: [{ basicAuth: [] }]
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        "200": { description: Reconciliación guardada. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /demo:
+    get:
+      tags: [demo]
+      summary: Dashboard de los 4 hallazgos estrella
+      responses:
+        "200": { description: Página HTML del dashboard. }
+
+  /api/demo/stats:
+    get:
+      tags: [demo]
+      summary: Métricas estrella (corpus, convergencia, F1, E1)
+      responses:
+        "200": { description: JSON con las cifras del demo. }
+
+  /api/demo/pc_status:
+    get:
+      tags: [demo]
+      summary: Estado del PC worker remoto
+      description: Online si el último heartbeat es < 15 s.
+      responses:
+        "200": { description: Estado del PC. }
+
+  /api/demo/heartbeat:
+    post:
+      tags: [demo]
+      summary: Heartbeat del PC + dispatch del próximo job
+      description: UPSERT en `pc_heartbeat`; si hay job `queued` y el PC está libre, lo asigna.
+      security: [{ basicAuth: [] }]
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        "200": { description: 'Eventualmente `{next_job}`.' }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/demo/job/event:
+    post:
+      tags: [demo]
+      summary: Evento de etapa del worker
+      description: Inserta en `demo_events`; al llegar `rag_extract.end` lanza el juez v2 server-side.
+      security: [{ basicAuth: [] }]
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        "200": { description: Evento registrado. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/demo/jobs:
+    get:
+      tags: [demo]
+      summary: Lista los demo jobs (público)
+      responses:
+        "200": { description: Lista de jobs. }
+    post:
+      tags: [demo]
+      summary: Encola un demo job (protegido)
+      description: Auth parcial dentro del handler — solo el POST exige credenciales; el GET es público.
+      security: [{ basicAuth: [] }]
+      requestBody:
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        "200": { description: Job encolado. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/demo/jobs/{job_id}:
+    get:
+      tags: [demo]
+      summary: Detalle de un job con sus eventos
+      parameters:
+        - { name: job_id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: Job + lista de eventos. }
+        "404": { description: Job no encontrado. }
+
+  /api/demo/jobs/{job_id}/events:
+    get:
+      tags: [demo]
+      summary: Polling incremental de eventos
+      parameters:
+        - { name: job_id, in: path, required: true, schema: { type: integer } }
+        - { name: after_id, in: query, required: false, schema: { type: integer }, description: Devuelve solo eventos con id > after_id. }
+      responses:
+        "200": { description: Eventos nuevos. }
+
+  /api/demo/articles/search:
+    get:
+      tags: [demo]
+      summary: Autocompletado de artículos del corpus
+      parameters:
+        - { name: q, in: query, required: false, schema: { type: string }, description: Substring del título. }
+      responses:
+        "200": { description: Lista de coincidencias. }
+
+  /pipeline:
+    get:
+      tags: [demo]
+      summary: Demo en vivo del pipeline (o replay estático)
+      description: >
+        Sin parámetros, muestra el pipeline en vivo (requiere el worker del PC).
+        Con `?replay=<job_id>` reproduce de forma estática las etapas de un job
+        ya completado leyendo `demo_events` (no requiere heartbeat del PC) —
+        usado para la defensa sin el PC (p. ej. `?replay=10`).
+      parameters:
+        - { name: replay, in: query, required: false, schema: { type: integer }, description: ID de un demo_job completado a reproducir estáticamente. }
+      responses:
+        "200": { description: Página HTML del pipeline (en vivo o replay). }
+        "404": { description: El job de replay no existe. }
+
+  /corpus:
+    get:
+      tags: [corpus]
+      summary: Explorador del corpus de artículos
+      responses:
+        "200": { description: Página HTML con drawer de detalle. }
+
+  /api/corpus/stats:
+    get:
+      tags: [corpus]
+      summary: Agregados del corpus
+      description: Por source/state/year y conteos de TTPs aceptados.
+      responses:
+        "200": { description: Agregados JSON. }
+
+  /api/corpus/articles:
+    get:
+      tags: [corpus]
+      summary: Listado paginado de artículos
+      parameters:
+        - { name: source, in: query, required: false, schema: { type: string } }
+        - { name: state, in: query, required: false, schema: { type: string } }
+        - { name: year, in: query, required: false, schema: { type: integer } }
+        - { name: has_ttps, in: query, required: false, schema: { type: boolean } }
+        - { name: q, in: query, required: false, schema: { type: string } }
+      responses:
+        "200": { description: Página de artículos con filtros. }
+
+  /api/corpus/article/{article_id}:
+    get:
+      tags: [corpus]
+      summary: Detalle de un artículo
+      description: Metadata, body, extracción y veredictos v1/v2.
+      parameters:
+        - { name: article_id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: Detalle del artículo. }
+        "404": { description: No encontrado. }
+
+  /longitudinal:
+    get:
+      tags: [analytics]
+      summary: Página de 7 visualizaciones temporales
+      responses:
+        "200": { description: Página HTML. }
+
+  /api/longitudinal/data:
+    get:
+      tags: [analytics]
+      summary: Bundle de 9 CSVs longitudinales
+      responses:
+        "200": { description: Datos longitudinales. }
+
+  /arm:
+    get:
+      tags: [analytics]
+      summary: Grafo D3 de co-ocurrencia + reglas ARM + centralidad
+      responses:
+        "200": { description: Página HTML. }
+
+  /api/arm/data:
+    get:
+      tags: [analytics]
+      summary: Bundle de 5 CSVs de cooccurrence/
+      responses:
+        "200": { description: Datos ARM. }
+
+  /judge:
+    get:
+      tags: [analytics]
+      summary: Comparativa visual juez v1 ↔ v2
+      responses:
+        "200": { description: Página HTML. }
+
+  /api/judge/data:
+    get:
+      tags: [analytics]
+      summary: Bundle evaluation_f1 + migración v1→v2
+      responses:
+        "200": { description: Datos del juez. }
+
+  /calibration-stats:
+    get:
+      tags: [analytics]
+      summary: Estadísticas de calibración
+      description: Distribución, confusion, α por fuente, quote viewer.
+      responses:
+        "200": { description: Página HTML. }
+
+  /api/calibration-stats/data:
+    get:
+      tags: [analytics]
+      summary: Bundle de calibración + 484 anotaciones
+      responses:
+        "200": { description: Datos de calibración. }
+
+  /catalog-lag:
+    get:
+      tags: [analytics]
+      summary: Análisis de latencia de catalogación MITRE
+      description: Histograma de lag, 4 técnicas estrictas, modos de fallo, test binomial, caveat D1.
+      responses:
+        "200": { description: Página HTML. }
+
+  /api/catalog-lag/data:
+    get:
+      tags: [analytics]
+      summary: Bundle de CSVs catalog_lag/ + histograma + binomial
+      responses:
+        "200": { description: Datos de catalog-lag. }
+
+  /api/docs:
+    get:
+      tags: [docs]
+      summary: Documentación interactiva (Swagger UI)
+      description: Esta misma página — Swagger UI cargado por CDN sobre /static/openapi.yaml.
+      responses:
+        "200": { description: Página HTML de Swagger UI. }

@@ -41,7 +41,7 @@ SPIDERS=(
 
 TOTAL=${#SPIDERS[@]}
 echo "======================================"
-echo " INICIANDO SCRAPING — $TIMESTAMP"
+echo " INICIANDO SCRAPING - $TIMESTAMP"
 echo " $TOTAL spiders en cola"
 echo "======================================"
 

@@ -50,8 +50,8 @@ sostener una publicación académica posterior con FIU.
         │   3. RAG: ChromaDB MITRE + tool_lookup → Qwen 14B     │
         │   4. commit_batch                                     │
         │                                                       │
-        │  pc/demo_worker.py — heartbeat + jobs en vivo         │
-        │  pc/run_judge.py   — judge v1 (Qwen)                  │
+        │  pc/demo_worker.py - heartbeat + jobs en vivo         │
+        │  pc/run_judge.py   - judge v1 (Qwen)                  │
         │                                                       │
         │  Judge v2 (Gemma 4 26B vía Google AI Studio API)      │
         │  reside en el SERVIDOR (judge_core.py + judge_v2.py)  │
@@ -63,7 +63,7 @@ sostener una publicación académica posterior con FIU.
 ## Resultados estrella
 
 - **F1 = 0,726** · MCC = 0,577 (pipeline completo, Post-hoc Candidate Validation, N=377)
-- **Krippendorff α = 0,6461** [0,5439–0,7490] sobre **N=278** (muestra de diseño estratificada de 384; 106 quedaron sin veredicto v2) — supera el umbral 0,60 del Objetivo 3
+- **Krippendorff α = 0,6461** [0,5439–0,7490] sobre **N=278** (muestra de diseño estratificada de 384; 106 quedaron sin veredicto v2); supera el umbral 0,60 del Objetivo 3
 - **Coincidencia humano ↔ Gemma 4** sobre conf=1.0: humano 41,0 % (N=100) vs Gemma 41,27 % (N=4.437); ambas vías sitúan ~59 % de falsos positivos (apoya H-2). Nota: muestras anidadas (99/100), no independientes; el TOST no prueba equivalencia a ±5 pp
 - **Corrección de errores E1** (abstracción vaga): juez v2 corrige el **96,9 %** de los E1 del juez v1
 
@@ -94,7 +94,7 @@ caveats y cómo regenerar el corpus completo: [data/README.md](data/README.md).
 ```bash
 # Desde la raíz de este repositorio (clonado o descomprimido)
 
-# .env (gitignored, crear a mano — plantilla en .env.example)
+# .env (gitignored, crear a mano; plantilla en .env.example)
 cat > .env <<EOF
 GOOGLE_API_KEY=<tu_key_AI_Studio>
 BASIC_AUTH_USER=<usuario_para_endpoints_mutacion>
@@ -122,7 +122,7 @@ cd pc
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt          # ver pc/README.md
 
-# pc/.env (gitignored, crear a mano — plantilla en pc/.env.example)
+# pc/.env (gitignored, crear a mano; plantilla en pc/.env.example)
 cat > .env <<EOF
 SCRAPER_URL=https://scraper.143.47.55.55.sslip.io
 BASIC_AUTH_USER=<mismo_que_servidor>
@@ -130,7 +130,7 @@ BASIC_AUTH_PASS=<mismo_que_servidor>
 GOOGLE_API_KEY=<opcional, solo para benchmark v2>
 EOF
 
-python3 build_index.py                   # una sola vez, ~5 min — bundle STIX MITRE → ChromaDB
+python3 build_index.py                   # una sola vez, ~5 min; bundle STIX MITRE → ChromaDB
 python3 run_extraction.py --batch-size 50   # producción: lote, prefilter, RAG, commit
 ```
 
@@ -141,7 +141,7 @@ Detalle del pipeline PC + descripción script-a-script en
 
 Los 7 scripts de análisis (`evaluation_f1.py`, `krippendorff_segmented.py`, …)
 viven en la raíz del repo y se ejecutan desde un venv local **separado** del
-contenedor (las deps científicas no se instalan en Python 3.14 ARM64 — wheels no
+contenedor (las deps científicas no se instalan en Python 3.14 ARM64: wheels no
 disponibles).
 
 ```bash
@@ -219,7 +219,7 @@ hay forma de alcanzarlo sin pasar por NPM.
 **Autenticación.** Las páginas de demo (`/`, `/demo`, `/pipeline`, `/corpus`,
 `/longitudinal`, `/arm`, `/judge`, `/calibration-stats`, `/catalog-lag`,
 `/calibration`) y las APIs JSON de solo lectura que consumen son **públicas
-por diseño** — el tribunal y revisores externos las cargan sin credenciales.
+por diseño**: el tribunal y revisores externos las cargan sin credenciales.
 
 Los endpoints de **mutación** y los del **pipeline cliente-servidor** están
 protegidos por HTTP Basic Auth implementado en Flask (variables
@@ -231,7 +231,7 @@ protegidos por HTTP Basic Auth implementado en Flask (variables
 - POST `/api/judge/commit_batch`, GET `/api/judge/acquire_batch`
 - POST `/api/calibration/verdict`, `/api/calibration/reconcile`
 - POST `/api/demo/heartbeat`, `/api/demo/job/event`
-- POST `/api/demo/jobs` (GET de la misma ruta sigue público — listado de jobs para el dashboard)
+- POST `/api/demo/jobs` (GET de la misma ruta sigue público: listado de jobs para el dashboard)
 
 NPM se configura como reverse proxy en modo **Publicly Accessible** (TLS +
 forwarding, sin Access List propia). Las credenciales viven en una sola capa
@@ -255,7 +255,7 @@ global). Cinco blogs anti-bot (CrowdStrike, Cisco Talos, Trend Micro, Sophos,
 Kaspersky) se crawlean con `ROBOTSTXT_OBEY=False`: su `robots.txt` bloquea el
 listado/sitemap aunque el contenido es público y los ToS permiten su lectura;
 **no se eluden controles de acceso** (autenticación, paywalls). No se republica el
-texto íntegro de terceros — el uso es minería de textos (Directiva (UE) 2019/790,
+texto íntegro de terceros: el uso es minería de textos (Directiva (UE) 2019/790,
 RDL 24/2021), y este repositorio distribuye el corpus **sin** el texto de los
 artículos ([data/README.md](data/README.md)). Detalle en la memoria (§ética del
 scraping).
@@ -268,7 +268,7 @@ todo análisis temporal** (`TEMPORAL_EXCLUDED` en `longitudinal_analysis.py` y
 
 **Atribución MITRE ATT&CK®.** Las técnicas y definiciones de
 `data/mitre_attack_cache.json` y `pc/mitre_techniques.json` proceden de MITRE
-ATT&CK® — *reproduced with permission of The MITRE Corporation*
+ATT&CK®, *reproduced with permission of The MITRE Corporation*
 (© The MITRE Corporation). MITRE ATT&CK® es una marca registrada de The MITRE
 Corporation.
 
@@ -279,7 +279,7 @@ Corporation.
 ```
 ransomware-intelligence-pipeline/
 ├── README.md                         # esta guía
-├── app.py                            # Flask (2.4k líneas) — UI + API + auth
+├── app.py                            # Flask (2.4k líneas): UI + API + auth
 ├── judge_core.py                     # SYSTEM_PROMPT + call_gemini (compartido)
 ├── judge_v2.py                       # CLI offline: validate / rejudge / rejudge_conf1
 ├── judge_bench.py                    # bench de determinismo del juez (temperature=0)
@@ -316,22 +316,22 @@ ransomware-intelligence-pipeline/
 
 ## Documentación del repositorio
 
-- **[DEFENSA_OBJETIVOS_CONTRATO.md](DEFENSA_OBJETIVOS_CONTRATO.md)** — evidencia de cumplimiento de los 5 objetivos contractuales, cifra a cifra, con el script y el CSV que respaldan cada una.
-- **[pc/README.md](pc/README.md)** — pipeline PC: instalación, flujos, limitaciones conocidas.
-- **[scrapy_project/README.md](scrapy_project/README.md)** — spiders, esquemas CSV, ejecución.
-- **[tests/README.md](tests/README.md)** — qué se testea, cómo, y qué no (y por qué).
-- **[data/README.md](data/README.md)** — el snapshot de BD: qué contiene, qué reproduce, atribución.
-- **[benchmark_v2_results/README.md](benchmark_v2_results/README.md)** — crudos del benchmark de extractores.
+- **[DEFENSA_OBJETIVOS_CONTRATO.md](DEFENSA_OBJETIVOS_CONTRATO.md)**: evidencia de cumplimiento de los 5 objetivos contractuales, cifra a cifra, con el script y el CSV que respaldan cada una.
+- **[pc/README.md](pc/README.md)**: pipeline PC: instalación, flujos, limitaciones conocidas.
+- **[scrapy_project/README.md](scrapy_project/README.md)**: spiders, esquemas CSV, ejecución.
+- **[tests/README.md](tests/README.md)**: qué se testea, cómo, y qué no (y por qué).
+- **[data/README.md](data/README.md)**: el snapshot de BD: qué contiene, qué reproduce, atribución.
+- **[benchmark_v2_results/README.md](benchmark_v2_results/README.md)**: crudos del benchmark de extractores.
 - La narrativa académica completa está en la **memoria del TFG** (no incluida en el repo; el tribunal dispone de ella).
 
 ---
 
 ## Licencia y autoría
 
-**Salvador Cascón Bertomeu** — Trabajo Fin de Grado 2026.
+**Salvador Cascón Bertomeu**, Trabajo Fin de Grado 2026.
 Tutor: Alejandro José Freire Mendoza.
 Colaboración académica: Florida International University, Group G-013
-(mentor: Weidong Zhu) — base del paper conjunto en preparación
+(mentor: Weidong Zhu); base del paper conjunto en preparación
 (objetivo USENIX / ACM CCS / NDSS, finales 2026).
 
 Sin licencia formal hasta la defensa del TFG (todos los derechos reservados

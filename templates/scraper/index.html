@@ -120,7 +120,7 @@
           <div class="{% if '✓' in line %}text-emerald-300{% elif '✗' in line %}text-rose-300{% elif '▶' in line %}text-cyan-300{% endif %}">{{ line }}</div>
         {% endfor %}
       {% else %}
-        <div class="text-slate-500">Sin actividad todavía — pulsa RUN para empezar.</div>
+        <div class="text-slate-500">Sin actividad todavía. Pulsa RUN para empezar.</div>
       {% endif %}
     </div>
   </section>
@@ -296,7 +296,7 @@
         </table>
       </div>
     {% else %}
-      <div class="text-center py-8 font-mono text-[11px] text-slate-500">Sin outputs todavía — lanza un spider para generar CSVs.</div>
+      <div class="text-center py-8 font-mono text-[11px] text-slate-500">Sin outputs todavía. Lanza un spider para generar CSVs.</div>
     {% endif %}
   </section>
 
@@ -401,7 +401,7 @@ function showToast(msg) {
 async function stopJob() {
   if (!confirm('¿Detener el scraping en curso?')) return;
   await fetch('/stop', { method: 'POST' });
-  showToast('⏹ Stop solicitado — el spider actual terminará y se parará la cola');
+  showToast('⏹ Stop solicitado: el spider actual terminará y se parará la cola');
 }
 
 async function triggerPreprocess() {
@@ -410,7 +410,7 @@ async function triggerPreprocess() {
   const r = await fetch('/trigger/preprocess', { method: 'POST' });
   const data = await r.json();
   if (data.status === 'started') {
-    showToast('⚙ Preprocess iniciado — revisa el log en unos segundos');
+    showToast('⚙ Preprocess iniciado: revisa el log en unos segundos');
   } else if (data.status === 'already_running') {
     showToast('⚙ El preprocess ya está corriendo');
   } else {

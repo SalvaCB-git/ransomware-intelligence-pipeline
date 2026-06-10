@@ -273,7 +273,7 @@ def analyze(items: list[dict], out_path: str) -> None:
 
     parcial = "" if len(rows) == len(items) else f"  [PARCIAL: {len(rows)}/{len(items)}]"
     print("=" * 82)
-    print(f"EXPERIMENTO temperature=0 vs default — N={len(rows)} ítems pareados{parcial}")
+    print(f"EXPERIMENTO temperature=0 vs default: N={len(rows)} ítems pareados{parcial}")
     print("=" * 82)
     print(f"  Humano accept-rate:            {sum(H)/len(H)*100:.1f}%")
     print(f"  DEFAULT (pipeline) vs humano:  {fmt(md)}")

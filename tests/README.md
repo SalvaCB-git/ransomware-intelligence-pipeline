@@ -14,7 +14,7 @@ python3 -m venv .venv-dev
 .venv-dev/bin/pytest tests/ -v
 ```
 
-> ⚠ Los tests corren en el **host** (venv `.venv-dev`), no en el contenedor:
+> OJO: los tests corren en el **host** (venv `.venv-dev`), no en el contenedor:
 > el contenedor usa Python 3.14 ARM64 sin wheels de varias deps, y además no
 > se instalan herramientas de test en producción.
 
@@ -54,7 +54,7 @@ coincidencia, duplicado, frontera de umbral, regex).
 - **`preprocess.py` no importa en Python 3.8** porque usa anotaciones
   PEP585/604 (`set[str]`, `str | None`) sin `from __future__ import
   annotations`. El fixture `preprocess` lo carga prefijando ese import (las
-  anotaciones se vuelven cadenas perezosas, PEP563) — así se ejercita el
+  anotaciones se vuelven cadenas perezosas, PEP563): así se ejercita el
   fichero de producción **sin modificarlo** y sin exigir un intérprete nuevo.
 - **`_simhash` y Python 3.8**: `_simhash` llama a `hashlib.md5(..,
   usedforsecurity=False)`, kwarg que existe desde 3.9. En el host (3.8) el
@@ -69,7 +69,7 @@ coincidencia, duplicado, frontera de umbral, regex).
   `init_runtime()`/scheduler solo corren bajo `__main__`. Si el aislamiento
   fallara, esos 3 tests hacen `skip` (no rompen la suite).
 
-## Qué NO se testea (y por qué) — trabajo futuro
+## Qué NO se testea (y por qué): trabajo futuro
 
 - **Integración y end-to-end**: spiders contra sitios vivos, llamadas reales a
   Ollama/Qwen y a la API de Gemma, rutas Flask con BD real. Excluido por el

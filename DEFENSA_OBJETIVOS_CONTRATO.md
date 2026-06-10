@@ -1,4 +1,4 @@
-# Defensa del cumplimiento de objetivos — Contrato TFG
+# Defensa del cumplimiento de objetivos del contrato del TFG
 
 **Alumno:** Salvador Cascón Bertomeu
 **Tutor:** Alejandro José Freire Mendoza
@@ -12,17 +12,17 @@
 
 | # | Objetivo del contrato | Métrica exigida | Resultado obtenido | Estado |
 |---|---|---|---|---|
-| 1 | Recolección automatizada y continua | ≥3.000 artículos, ≥10 fuentes, cloud | **3.871 artículos**, **13 fuentes**, OCI 24/7 | ✅ Cumplido |
-| 2 | Pipeline RAG con MITRE ATT&CK | F1 ≥ 0.70, JSON ≥ 90%, ≥50 anotados | **F1 = 0.726**, **JSON 96.34%**, **484 anotados** | ✅ Cumplido |
-| 3 | Validación con calibración humana | Krippendorff α ≥ 0.60 sobre ≥200 TTPs estratificados | **α = 0.6461 sobre N = 278** pares (de muestra estratificada de 384) | ✅ Cumplido |
-| 4 | Análisis longitudinal 2021-2025 | ≥5 tendencias significativas + datos exportables | **6 Mann-Kendall confirmatorias (p<0,05) + 5 exploratorias (p<0,10) + 13 emergentes (normalizadas)**, 10 figuras + 10 CSVs | ✅ Cumplido |
-| 5 | Evaluación calidad pipeline | TP rate sobre ≥200 anotados | **Precision = 0.783, Recall = 0.677** sobre N = 377 | ✅ Cumplido |
+| 1 | Recolección automatizada y continua | ≥3.000 artículos, ≥10 fuentes, cloud | **3.871 artículos**, **13 fuentes**, OCI 24/7 | Cumplido |
+| 2 | Pipeline RAG con MITRE ATT&CK | F1 ≥ 0.70, JSON ≥ 90%, ≥50 anotados | **F1 = 0.726**, **JSON 96.34%**, **484 anotados** | Cumplido |
+| 3 | Validación con calibración humana | Krippendorff α ≥ 0.60 sobre ≥200 TTPs estratificados | **α = 0.6461 sobre N = 278** pares (de muestra estratificada de 384) | Cumplido |
+| 4 | Análisis longitudinal 2021-2025 | ≥5 tendencias significativas + datos exportables | **6 Mann-Kendall confirmatorias (p<0,05) + 5 exploratorias (p<0,10) + 13 emergentes (normalizadas)**, 10 figuras + 10 CSVs | Cumplido |
+| 5 | Evaluación calidad pipeline | TP rate sobre ≥200 anotados | **Precision = 0.783, Recall = 0.677** sobre N = 377 | Cumplido |
 
 Los cinco objetivos del contrato se cumplen con holgura. Toda métrica reportada es reproducible mediante los scripts del repositorio y los CSVs en `outputs/`. Las cifras citadas son consistentes con las almacenadas en `data/ransomware_intel.db` (SQLite) en el momento del informe.
 
 ---
 
-## Objetivo 1 — Recolección automatizada y continua
+## Objetivo 1: Recolección automatizada y continua
 
 > **Contrato (literal):** *"Diseñar e implementar un sistema de recolección automatizada y continua de reportes públicos de threat intelligence sobre ransomware que recopile un mínimo de 3.000 artículos de al menos 10 fuentes especializadas, desplegado en producción sobre infraestructura cloud con disponibilidad continua durante el período de evaluación del TFG."*
 
@@ -76,14 +76,14 @@ Disponibilidad continua se evidencia en los logs de Docker (`docker logs scraper
 ### Artefactos
 
 - 14 spiders activos (16 ficheros − 2 bloqueados: sophos_news, kaspersky_securelist); 13 fuentes con artículos en BD en `scrapy_project/bcddg/bcddg/spiders/`
-- `app.py` — panel Flask de orquestación (2.443 líneas)
-- `docker-compose.yml` + `Dockerfile` — despliegue reproducible
-- `scrapy_project/preprocess.py` — ingesta SQLite con SimHash
-- `data/ransomware_intel.db` — corpus completo
+- `app.py`: panel Flask de orquestación (2.443 líneas)
+- `docker-compose.yml` + `Dockerfile`: despliegue reproducible
+- `scrapy_project/preprocess.py`: ingesta SQLite con SimHash
+- `data/ransomware_intel.db`: corpus completo
 
 ---
 
-## Objetivo 2 — Pipeline RAG con MITRE ATT&CK
+## Objetivo 2: Pipeline RAG con MITRE ATT&CK
 
 > **Contrato (literal):** *"Desarrollar un pipeline de extracción semántica basado en un modelo de lenguaje (LLM) con retrieval-augmented generation (RAG) que identifique tácticas, técnicas y procedimientos (TTPs) alineados con el framework MITRE ATT&CK, alcanzando una puntuación F1 ≥ 0.70 y una adherencia al esquema JSON ≥ 90% medida sobre una muestra de validación de mínimo 50 artículos anotados manualmente."*
 
@@ -129,9 +129,9 @@ Medido sobre las 2.977 extracciones de la BD (10.256 TTPs individuales):
 | Esquema strict a nivel extracción | 2.774 / 2.977 | **93.18%** |
 | Esquema core a nivel TTP individual | 9.595 / 10.256 | 93.55% |
 
-Cualquier criterio razonable supera el umbral del 90% del contrato. Solo el criterio más estricto (cada TTP individual con los 4 campos, incluido `confidence`) queda en el 77.40% — debido a que el modelo a veces omite el campo `confidence` en TTPs sencillos (campo opcional en la práctica del extractor).
+Cualquier criterio razonable supera el umbral del 90% del contrato. Solo el criterio más estricto (cada TTP individual con los 4 campos, incluido `confidence`) queda en el 77.40%, debido a que el modelo a veces omite el campo `confidence` en TTPs sencillos (campo opcional en la práctica del extractor).
 
-### F1 — método de cálculo
+### F1: método de cálculo
 
 - **Ground truth:** `calibration_sample` (484 TTPs anotados manualmente, sesión 19)
 - **Configuración evaluada:** Config B = extractor + juez v2 (sistema completo)
@@ -153,11 +153,11 @@ Cruzando el código de error E1-E5 anotado por el humano con el veredicto v2:
 
 ### Artefactos verificables
 
-- `evaluation_f1.py` (sesión 25) — calcula F1, MCC, Krippendorff, Cohen κ, balanced accuracy, NPV con BCa CI
-- `outputs/evaluation_f1/` — 12 ficheros: confusion matrices, per-source, per-technique, per-tactic, audit trail
-- `json_adherence.py` (sesión 25) — calcula adherencia JSON con desglose por nivel
-- `outputs/json_adherence/` — `summary.csv`, `per_extraction.csv`, `by_model.csv`, `missing_fields.csv`
-- `outputs/evaluation_f1/README.md` — documentación metodológica completa con referencias bibliográficas
+- `evaluation_f1.py` (sesión 25): calcula F1, MCC, Krippendorff, Cohen κ, balanced accuracy, NPV con BCa CI
+- `outputs/evaluation_f1/`: 12 ficheros: confusion matrices, per-source, per-technique, per-tactic, audit trail
+- `json_adherence.py` (sesión 25): calcula adherencia JSON con desglose por nivel
+- `outputs/json_adherence/`: `summary.csv`, `per_extraction.csv`, `by_model.csv`, `missing_fields.csv`
+- `outputs/evaluation_f1/README.md`: documentación metodológica completa con referencias bibliográficas
 
 ### Cómo verificar
 
@@ -169,7 +169,7 @@ python3 json_adherence.py
 
 ---
 
-## Objetivo 3 — Validación con calibración humana (Krippendorff α)
+## Objetivo 3: Validación con calibración humana (Krippendorff α)
 
 > **Contrato (literal):** *"Implementar un mecanismo de validación de la calidad de la extracción que combine evaluación automática (LLM-as-a-judge) y calibración humana, obteniendo un Krippendorff's Alpha ≥ 0.60 entre el anotador humano y el juez automático sobre una muestra estratificada de mínimo 200 TTPs extraídos del corpus."*
 
@@ -182,7 +182,7 @@ python3 json_adherence.py
 | α humano vs juez v2 sobre control (N=99) | — | 0.5370 | [0.366, 0.7081] |
 | Tamaño de muestra estratificada | ≥ 200 | 384 | — |
 
-> ⟶ Precisión (verdad viva): α = 0,6461 se calcula sobre N = 278 pares completos (humano ∩ v2); de los 384 estratificados, 106 quedan sin veredicto v2. El umbral contractual ≥ 200 se cumple igualmente.
+> Precisión (verdad viva): α = 0,6461 se calcula sobre N = 278 pares completos (humano ∩ v2); de los 384 estratificados, 106 quedan sin veredicto v2. El umbral contractual ≥ 200 se cumple igualmente.
 
 El estimador puntual sobre la muestra estratificada (la que pide explícitamente el contrato) supera el umbral 0.60 sin necesidad de apelar al intervalo de confianza.
 
@@ -242,13 +242,13 @@ Cruzando el código de error E1-E5 con el veredicto v2:
 
 ### Artefactos verificables
 
-- `krippendorff_segmented.py` — script reproducible que segmenta α por estrato, fuente, veredicto humano, código de error
-- `outputs/krippendorff_segmented/headline.csv` — α por cut con IC 95% BCa
-- `outputs/krippendorff_segmented/per_source.csv` — α por fuente
-- `outputs/krippendorff_segmented/per_human_verdict.csv` — comportamiento del juez v2 condicionado al veredicto humano
-- `outputs/krippendorff_segmented/error_taxonomy_v2_correction.csv` — corrección de E1-E5
-- **`outputs/krippendorff_segmented/argumentacion.md`** — argumentación textual de 9 secciones lista para insertar en la memoria
-- `app.py` rutas `/calibration` + `/api/calibration/*` — UI mobile-first usada para anotar los 484 TTPs
+- `krippendorff_segmented.py`: script reproducible que segmenta α por estrato, fuente, veredicto humano, código de error
+- `outputs/krippendorff_segmented/headline.csv`: α por cut con IC 95% BCa
+- `outputs/krippendorff_segmented/per_source.csv`: α por fuente
+- `outputs/krippendorff_segmented/per_human_verdict.csv`: comportamiento del juez v2 condicionado al veredicto humano
+- `outputs/krippendorff_segmented/error_taxonomy_v2_correction.csv`: corrección de E1-E5
+- **`outputs/krippendorff_segmented/argumentacion.md`**: argumentación textual de 9 secciones lista para insertar en la memoria
+- `app.py` rutas `/calibration` + `/api/calibration/*`: UI mobile-first usada para anotar los 484 TTPs
 
 ### Cómo verificar
 
@@ -258,7 +258,7 @@ Cruzando el código de error E1-E5 con el veredicto v2:
 
 ---
 
-## Objetivo 4 — Análisis longitudinal 2021-2025
+## Objetivo 4: Análisis longitudinal 2021-2025
 
 > **Contrato (literal):** *"Realizar un análisis longitudinal del corpus extraído con cobertura temporal mínima 2021-2025 que identifique y cuantifique al menos 5 tendencias estadísticamente significativas en la evolución de técnicas MITRE ATT&CK a lo largo del tiempo, con visualizaciones reproducibles y datos exportables."*
 
@@ -266,7 +266,7 @@ Cruzando el código de error E1-E5 con el veredicto v2:
 
 | Métrica exigida | Resultado |
 |---|---|
-| Cobertura temporal | **2021-2026** (parcial 2026) — supera el período mínimo |
+| Cobertura temporal | **2021-2026** (parcial 2026), supera el período mínimo |
 | Tendencias significativas | **6 Mann-Kendall confirmatorias (p<0,05, sin corrección por multiplicidad) + 5 exploratorias (p<0,10) + 13 técnicas emergentes robustas (ratio ≥ 1,5×, normalizadas por volumen) + cambios estructurales** |
 | Visualizaciones reproducibles | **10 figuras PNG en outputs/longitudinal/figures/** |
 | Datos exportables | **10 CSVs en outputs/longitudinal/** |
@@ -282,12 +282,12 @@ Cruzando el código de error E1-E5 con el veredicto v2:
 | T1562.001 | +0.900 | **0.033** | Disable or Modify Tools |
 | T1021.002 | -0.900 | **0.033** | SMB/Windows Admin Shares |
 | T1056.001 | +0.800 | 0.067 | Keylogging |
-| T1587.001 | +0.800 | 0.067 | Develop Capabilities — Malware |
+| T1587.001 | +0.800 | 0.067 | Develop Capabilities: Malware |
 | T1190 | +0.800 | 0.083 | Exploit Public-Facing Application |
 | T1219 | +0.800 | 0.083 | Remote Access Tools (RMM abuse) |
 | T1572 | +0.800 | 0.083 | Protocol Tunneling |
 
-Seis técnicas son significativas a p < 0.05 estricto (T1486 y T1562 a p=0.017; T1070.001, T1136, T1562.001 y T1021.002 a p=0.033). Cinco técnicas adicionales son significativas a p < 0.10 — relevante dado que Mann-Kendall sobre series de N = 5 años tiene potencia estadística limitada (limitación documentada en la memoria). El criterio aceptado en la literatura aplicada (Hipel & McLeod 2005, *Time Series Modelling of Water Resources*) admite p < 0.10 cuando la longitud de la serie es ≤ 7 puntos.
+Seis técnicas son significativas a p < 0.05 estricto (T1486 y T1562 a p=0.017; T1070.001, T1136, T1562.001 y T1021.002 a p=0.033). Cinco técnicas adicionales son significativas a p < 0.10, relevante dado que Mann-Kendall sobre series de N = 5 años tiene potencia estadística limitada (limitación documentada en la memoria). El criterio aceptado en la literatura aplicada (Hipel & McLeod 2005, *Time Series Modelling of Water Resources*) admite p < 0.10 cuando la longitud de la serie es ≤ 7 puntos.
 
 **Caveat de multiplicidad (alineado con cap.5):** estos contrastes se aplican sobre 113 técnicas **sin corrección por comparaciones múltiples**; el recuento (6 a p<0,05, 11 a p<0,10) coincide con la expectativa por azar y **ninguna sobrevive a Benjamini-Hochberg (FDR) ni Bonferroni**. Por eso se presentan como **6 confirmatorias** (p<0,05) + **5 exploratorias** (p<0,10) y el Objetivo 4 se apoya sobre todo en las **13 técnicas emergentes** (descriptivas, reproducibles) y en los cambios estructurales, no solo en Mann-Kendall.
 
@@ -295,7 +295,7 @@ Seis técnicas son significativas a p < 0.05 estricto (T1486 y T1562 a p=0.017; 
 
 13 técnicas con crecimiento ≥ 1,5× tras corregir el sesgo de volumen de bc_site (que domina el 56% del corpus 2024). Top 6 con presencia significativa (norm_late ≥ 0.20):
 
-> ⟶ Criterio del recuento: el "13" es la intersección de las técnicas emergentes en bruto (crecimiento ≥ 1,5× con ≥ 5 apariciones en 2024-25) y en frecuencia normalizada por fuente (crecimiento ≥ 1,5× con prevalencia normalizada ≥ 0,1), según `longitudinal_analysis.py`.
+> Criterio del recuento: el "13" es la intersección de las técnicas emergentes en bruto (crecimiento ≥ 1,5× con ≥ 5 apariciones en 2024-25) y en frecuencia normalizada por fuente (crecimiento ≥ 1,5× con prevalencia normalizada ≥ 0,1), según `longitudinal_analysis.py`.
 
 | Técnica | Ratio normalizado | Nombre |
 |---|---|---|
@@ -310,13 +310,13 @@ Seis técnicas son significativas a p < 0.05 estricto (T1486 y T1562 a p=0.017; 
 
 1. **Impact táctica:** crece de 14% (2021) → 22% (2025) del total de TTPs
 2. **Initial Access:** baja de 18% (2022) → 10% (2025)
-3. **Doble extorsión a nivel documento:** 1.0% (2021) → 2.7% (2025) — lower bound conservador
+3. **Doble extorsión a nivel documento:** 1.0% (2021) → 2.7% (2025), lower bound conservador
 4. **Entropía Shannon de fuentes:** cae de 0.84 (2022) → 0.63 (2024). bc_site domina el corpus reciente
 5. **Volumen del corpus:** 278 → 482 → 592 TTPs/año (2021/2023/2025), crecimiento robusto sostenido
 
-### Latencia de catalogación de MITRE (catalog-lag) — caveat metodológico D1
+### Latencia de catalogación de MITRE (catalog-lag): caveat metodológico D1
 
-⚠️ **NO presentar como "early warning" ni como capacidad predictiva** en ningún entregable que vea el tribunal (ver memoria, §catalog-lag, y FASE2_decisiones D1).
+**OJO: NO presentar como "early warning" ni como capacidad predictiva** en ningún entregable que vea el tribunal (ver memoria, §catalog-lag, y FASE2_decisiones D1).
 
 El análisis identifica un subconjunto estricto de **4 técnicas** que aparecen en el corpus textual antes de su catalogación formal en ATT&CK. Por **construcción es una retrodicción**, no una predicción: el índice ChromaDB del extractor se construyó con un *bundle* de MITRE de 2026, posterior a buena parte del corpus (*data leakage* retrospectivo, decisión D1). El **test binomial exacto** sobre las 49 técnicas post-inicio-de-corpus (21/49 = 42,9 %, **p = 0,8736**) **no es significativo**: la masa del corpus es posterior a la catalogación.
 
@@ -330,11 +330,11 @@ El análisis identifica un subconjunto estricto de **4 técnicas** que aparecen 
 |---|---|---|
 | 01 | volume_by_year.png | Crecimiento del corpus 2021-2025 |
 | 02 | volume_by_quarter.png | Granularidad temporal trimestral |
-| 03 | tactic_distribution_by_year.png | Stacked bar normalizada — Impact crece, Initial Access decae |
+| 03 | tactic_distribution_by_year.png | Stacked bar normalizada: Impact crece, Initial Access decae |
 | 04 | source_contribution_by_year.png | Composición del corpus por fuente |
 | 05 | shannon_entropy.png | Diversidad de fuentes 2021-2025 |
 | 06 | top_techniques_heatmap.png | Heatmap top técnicas por año |
-| 07 | emergence_normalized.png | Emergentes normalizadas — corregido sesgo de volumen |
+| 07 | emergence_normalized.png | Emergentes normalizadas: corregido sesgo de volumen |
 | 08 | mann_kendall_scatter.png | τ vs −log₁₀(p), bubble size = N |
 | 09 | double_extortion.png | Evolución doble extorsión doc-level |
 | 10 | emergence_raw.png | Comparativa bruto vs normalizado |
@@ -345,13 +345,13 @@ El análisis identifica un subconjunto estricto de **4 técnicas** que aparecen 
 
 ### Limitación documentada
 
-`crowdstrike_blog` (175 TTPs aceptados) excluido del análisis temporal porque todos sus artículos llevan fecha del crawl (2026-02-24/26) en lugar de fecha de publicación real — el spider de sitemap no extrajo `published_utc`. Sus TTPs sí se incluyen en totales agregados pero no en análisis temporales. Limitación reconocida explícitamente en el script y en la memoria.
+`crowdstrike_blog` (175 TTPs aceptados) excluido del análisis temporal porque todos sus artículos llevan fecha del crawl (2026-02-24/26) en lugar de fecha de publicación real: el spider de sitemap no extrajo `published_utc`. Sus TTPs sí se incluyen en totales agregados pero no en análisis temporales. Limitación reconocida explícitamente en el script y en la memoria.
 
 ### Artefactos verificables
 
-- `longitudinal_analysis.py` — script en stdlib puro (sqlite3, sin dependencias externas)
-- `longitudinal_figures.py` — generación de las 10 figuras PNG (matplotlib)
-- `outputs/longitudinal/` — 10 CSVs + subcarpeta `figures/` con 10 PNGs
+- `longitudinal_analysis.py`: script en stdlib puro (sqlite3, sin dependencias externas)
+- `longitudinal_figures.py`: generación de las 10 figuras PNG (matplotlib)
+- `outputs/longitudinal/`: 10 CSVs + subcarpeta `figures/` con 10 PNGs
 
 ### Cómo verificar
 
@@ -362,7 +362,7 @@ python3 longitudinal_analysis.py
 
 ---
 
-## Objetivo 5 — Evaluación de calidad sobre muestra de calibración
+## Objetivo 5: Evaluación de calidad sobre muestra de calibración
 
 > **Contrato (literal):** *"Evaluar la calidad del pipeline de extracción sobre la muestra de calibración anotada manualmente (N ≥ 200 TTPs), calculando la tasa de verdaderos positivos del sistema completo (extractor + juez automático)."*
 
@@ -402,11 +402,11 @@ Se comparó la tasa de aceptación sobre los TTPs de conf=1.0 por dos vías:
 - Tasa Gemma: 1.831/4.437 = 41.27%
 - Diferencia de marginales: 0.27 pp
 
-**OJO — no sobre-vender (verificado en auditoría):** las dos muestras NO son independientes: 99 de los 100 ítems de control están contenidos en los 4.437 que juzgó Gemma. Sobre esos 99 ítems comunes el humano acepta 41,4% y Gemma 37,4% (Δ=4,0 pp, 22 desacuerdos): la cercanía de los marginales (0,27 pp) NO es acuerdo ítem-a-ítem. El TOST con el margen pre-registrado ±5 pp da `equivalence_proven=False`; el ±8,45 pp es solo la mínima diferencia detectable con N=100 (post-hoc), NO un margen probado. **No afirmar "equivalencia probada" ni "métodos independientes".**
+**OJO: no sobre-vender (verificado en auditoría):** las dos muestras NO son independientes: 99 de los 100 ítems de control están contenidos en los 4.437 que juzgó Gemma. Sobre esos 99 ítems comunes el humano acepta 41,4% y Gemma 37,4% (Δ=4,0 pp, 22 desacuerdos): la cercanía de los marginales (0,27 pp) NO es acuerdo ítem-a-ítem. El TOST con el margen pre-registrado ±5 pp da `equivalence_proven=False`; el ±8,45 pp es solo la mínima diferencia detectable con N=100 (post-hoc), NO un margen probado. **No afirmar "equivalencia probada" ni "métodos independientes".**
 
 Lo defendible (y robusto): ambas vías sitúan la validez en ~41 %, lo que refuta que conf=1.0 sea inequívoco (~59 % falsos positivos) y sostiene H-2. McNemar pareado da p=0,52 (no hay diferencia detectable). Es triangulación **descriptiva** que apoya H-2, no una prueba formal de equivalencia.
 
-### Per-source — heterogeneidad por fuente (sin jerarquía de calidad nítida)
+### Per-source: heterogeneidad por fuente (sin jerarquía de calidad nítida)
 
 | Fuente | N con v2 | F1 |
 |---|---|---|
@@ -423,18 +423,18 @@ El F1 por fuente es heterogéneo, pero los tipos de informe (IHF/forense, vendor
 
 ### Artefactos verificables
 
-- `evaluation_f1.py` — script principal (sesión 25)
-- `outputs/evaluation_f1/` — 11 CSVs:
-  - `primary_metrics.csv` — métricas primarias (F1/MCC/P/R) con BCa CI
-  - `confusion_matrix_3x3.csv` — matriz de confusión (accept/reject/uncertain)
-  - `coverage_report.csv` — análisis de cobertura
+- `evaluation_f1.py`: script principal (sesión 25)
+- `outputs/evaluation_f1/`: 11 CSVs:
+  - `primary_metrics.csv`: métricas primarias (F1/MCC/P/R) con BCa CI
+  - `confusion_matrix_3x3.csv`: matriz de confusión (accept/reject/uncertain)
+  - `coverage_report.csv`: análisis de cobertura
   - `per_source_metrics.csv`, `per_technique_metrics.csv`, `per_tactic_metrics.csv`
-  - `per_ttp_evaluation.csv` — evaluación TTP a TTP (fila a fila)
-  - `error_taxonomy_correction.csv` — corrección de E1-E5
-  - `tost_equivalence.csv` — test TOST humano-Gemma
-  - `sensitivity_analysis.csv` — análisis de sensibilidad (tres escenarios)
-  - `extractor_only_yield.csv` — métricas de Config A (extractor solo, referencia)
-- `outputs/json_adherence/` — métricas de adherencia JSON
+  - `per_ttp_evaluation.csv`: evaluación TTP a TTP (fila a fila)
+  - `error_taxonomy_correction.csv`: corrección de E1-E5
+  - `tost_equivalence.csv`: test TOST humano-Gemma
+  - `sensitivity_analysis.csv`: análisis de sensibilidad (tres escenarios)
+  - `extractor_only_yield.csv`: métricas de Config A (extractor solo, referencia)
+- `outputs/json_adherence/`: métricas de adherencia JSON
 
 ### Cómo verificar
 
@@ -444,7 +444,7 @@ El F1 por fuente es heterogéneo, pero los tipos de informe (IHF/forense, vendor
 
 ---
 
-## Anexo — Cómo reproducir todas las métricas del informe
+## Anexo: cómo reproducir todas las métricas del informe
 
 El servidor de despliegue contiene la BD canónica. Todos los scripts son ejecutables desde la raíz del repositorio (el snapshot versionado en `data/ransomware_intel.db` reproduce las mismas cifras; ver `data/README.md`).
 
@@ -458,20 +458,20 @@ El servidor de despliegue contiene la BD canónica. Todos los scripts son ejecut
 ```bash
 cd <ruta-del-repositorio>
 
-# Obj 2 — adherencia JSON
+# Obj 2: adherencia JSON
 python3 json_adherence.py
 
-# Obj 5 — evaluación F1 + Krippendorff post-stratificado
+# Obj 5: evaluación F1 + Krippendorff post-stratificado
 .venv-analysis/bin/python evaluation_f1.py
 
-# Obj 3 — Krippendorff segmentado (estratificado puro)
+# Obj 3: Krippendorff segmentado (estratificado puro)
 .venv-analysis/bin/python krippendorff_segmented.py
 
-# Obj 4 — análisis longitudinal y figuras
+# Obj 4: análisis longitudinal y figuras
 python3 longitudinal_analysis.py
 .venv-analysis/bin/python longitudinal_figures.py
 
-# Análisis suplementario — co-ocurrencias y reglas de asociación (apoya Obj 4)
+# Análisis suplementario: co-ocurrencias y reglas de asociación (apoya Obj 4)
 python3 cooccurrence_analysis.py
 ```
 

@@ -1,4 +1,4 @@
-# pc/ — Cliente local del pipeline
+# pc/: Cliente local del pipeline
 
 Lado PC del pipeline de extracción semántica de TTPs sobre threat intelligence
 de ransomware. Lo que vive aquí: extracción RAG con Qwen 2.5 14B sobre GPU
@@ -8,7 +8,7 @@ modelos pesados no caben en el contenedor Docker (ARM64, sin GPU); este
 directorio se sincroniza al PC y se ejecuta desde allí, comunicándose con el
 servidor por HTTPS+Basic Auth.
 
-El judge v2 (Gemma 4 26B vía Google AI Studio API) **NO está aquí** —
+El judge v2 (Gemma 4 26B vía Google AI Studio API) **NO está aquí**:
 reside en el servidor (`judge_core.py` + `judge_v2.py` en la raíz del repo)
 desde la sesión 28, para liberar GPU y centralizar la API key de Google.
 
@@ -68,7 +68,7 @@ de scripts funciona sin ellas.
 
 ---
 
-## Caveat operativo — `SERVER_URL` parcialmente hardcoded
+## Caveat operativo: `SERVER_URL` parcialmente hardcoded
 
 Solo `demo_worker.py` lee `SCRAPER_URL` desde el entorno. Los otros dos
 clientes del servidor (`run_extraction.py:29` y `run_judge.py:31`) tienen el
@@ -146,7 +146,7 @@ tail -f benchmark_v2.log
 ```
 
 Corre Qwen 3.5 9B (Ollama local) y Gemma 4 26B (Google AI Studio API) en
-paralelo sobre los ~400 artículos de `calibration_sample` — no compiten por
+paralelo sobre los ~400 artículos de `calibration_sample`; no compiten por
 recursos. Tiempo total ≈ max(GPU, API) ≈ 3-4 horas. Genera JSONL con
 extracciones raw en `../benchmark_v2_results/`.
 
@@ -190,7 +190,7 @@ necesita una copia de la BD **con** `articles.body` (re-extrae desde el texto).
 | `run_benchmark_v2.py`   | Benchmark v2 (Qwen 3.5 + Gemma 4 API en paralelo)       | CLI                                   |
 | `evaluate_benchmark.py` | P/R/F1 sobre benchmark v2                               | CLI                                   |
 | `compute_alpha.py`      | α Krippendorff sobre calibración                        | CLI                                   |
-| `explore_corpus.py`     | CLI exploratorio (ejecutar vía SSH en servidor — path BD hardcoded) | exploración manual           |
+| `explore_corpus.py`     | CLI exploratorio (ejecutar vía SSH en servidor; path BD hardcoded) | exploración manual           |
 | `mitre_techniques.json` | Catálogo MITRE parseado (output de `build_index`)       | datos                                 |
 
 ---
@@ -208,7 +208,7 @@ necesita una copia de la BD **con** `articles.body` (re-extrae desde el texto).
    servidor y no se copió al PC a tiempo. Pendiente para la fase 2 del paper
    con FIU; no bloquea la entrega del TFG (cifras estrella son independientes).
 
-3. **`rag_extractor.py` tool_lookup — corregido en código; corpus extraído pre-fix.**
+3. **`rag_extractor.py` tool_lookup: corregido en código; corpus extraído pre-fix.**
    El matcher de herramientas YA usa word boundaries (`_TOOL_PATTERNS` con `\b`,
    `rag_extractor.py:96-101`): "Conti" ya no matchea dentro de "continuously". El
    corpus limpio de 2.355 TTPs se extrajo ANTES del fix y **no se re-extrae**
@@ -228,12 +228,12 @@ necesita una copia de la BD **con** `articles.body` (re-extrae desde el texto).
 
 ## Relación con el servidor
 
-- **`/api/ttps/acquire_batch`** + **`/api/ttps/commit_batch`** — flujo de extracción.
+- **`/api/ttps/acquire_batch`** + **`/api/ttps/commit_batch`**: flujo de extracción.
   Lock 3h en `acquire_batch`, INSERT atómico en `commit_batch`. Llamados por
   `run_extraction.py`.
-- **`/api/judge/acquire_batch`** + **`/api/judge/commit_batch`** — flujo de judge v1.
+- **`/api/judge/acquire_batch`** + **`/api/judge/commit_batch`**: flujo de judge v1.
   Llamados por `run_judge.py` (idempotente vía `INSERT OR IGNORE`).
-- **`/api/demo/heartbeat`** + **`/api/demo/job/event`** — bridge PC↔servidor.
+- **`/api/demo/heartbeat`** + **`/api/demo/job/event`**: bridge PC↔servidor.
   El worker mantiene viva la presencia del PC en la UI; el servidor le pasa
   jobs queued cuando llegan.
 - **Judge v2 (Gemma 4 26B)** vive en el servidor (`judge_core.py` + `judge_v2.py`

@@ -1,4 +1,4 @@
-# scrapy_project/ — Recolección del corpus
+# scrapy_project/: Recolección del corpus
 
 Subsistema de recolección: spiders Scrapy → CSV → `preprocess.py` →
 SQLite (`data/ransomware_intel.db`) con deduplicación SimHash 64-bit.
@@ -9,7 +9,7 @@ SQLite (`data/ransomware_intel.db`) con deduplicación SimHash 64-bit.
 `cisa_stopransomware`, `cisco_talos`, `crowdstrike_blog`, `dfir_report`,
 `elastic_security`, `huntress`, `microsoft_security`, `red_canary`,
 `sentinelone_blog`, `talos_blog` (segundo spider de Cisco Talos, vía
-sitemap), `trendmicro_research`, `unit42`, `welivesecurity` — todos con
+sitemap), `trendmicro_research`, `unit42`, `welivesecurity`, todos con
 sufijo `_ransomware` en su `name`.
 
 **Bloqueados (2):** `sophos_news` y `kaspersky_securelist` existen pero el
@@ -51,15 +51,15 @@ mapping a `SOURCE_MAP` en `preprocess.py`).
 
 ## Otros ficheros
 
-- `preprocess.py` — ingesta CSV→SQLite, dedup SimHash, normalización de
+- `preprocess.py`: ingesta CSV→SQLite, dedup SimHash, normalización de
   fechas y fuentes. Importado también por los tests.
-- `migrate_schema.py`, `migrate_judge.py`, `migrate_calibration.py` —
+- `migrate_schema.py`, `migrate_judge.py`, `migrate_calibration.py`:
   migraciones del esquema núcleo (extractions, ttp_verdicts,
   calibration_sample) con su procedencia documentada (seed=42, estratos).
-- `migrations/` — migraciones idempotentes posteriores (demo, heartbeat,
+- `migrations/`: migraciones idempotentes posteriores (demo, heartbeat,
   judge v2, dedup). `migrate_dedup_extractions.py` es histórico: documenta
   cómo se depuró el corpus limpio; no re-ejecutar.
-- `requirements.txt` — dependencias pineadas del contenedor.
+- `requirements.txt`: dependencias pineadas del contenedor.
 
 ## Ética del crawling
 

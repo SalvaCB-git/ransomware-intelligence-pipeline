@@ -504,7 +504,7 @@
 
   const RAG_SYSTEM_SPLITS = [
     { marker: 'OUTPUT RULES — ABSOLUTE:', label: 'Output rules', kind: 'static', desc: 'Restricciones duras: JSON only, ID válido, quote verbatim, compatibilidad táctica.' },
-    { marker: 'CONFIDENCE SCALE — use exactly these four values:', label: 'Confidence scale', kind: 'static', desc: 'Escala discreta 1.00 / 0.75 / 0.50 / 0.25 — evita números continuos inventados.' },
+    { marker: 'CONFIDENCE SCALE — use exactly these four values:', label: 'Confidence scale', kind: 'static', desc: 'Escala discreta 1.00 / 0.75 / 0.50 / 0.25; evita números continuos inventados.' },
     { marker: 'JSON OUTPUT SCHEMA:', label: 'JSON output schema', kind: 'static', desc: 'Estructura exacta de la respuesta. Reasoning va PRIMERO como scratchpad.' },
     { marker: 'CRITICAL:', label: 'Two-step protocol', kind: 'static', desc: 'Protocolo anti-alucinación: rellena reasoning antes y evidence_quote antes que technique_id.' },
   ];
@@ -522,14 +522,14 @@
     if (!text) return '';
     const preamble = { label: 'Identidad y objetivo', kind: 'static', desc: 'Rol del modelo: extractor de TTPs MITRE para reportes de ransomware.' };
     const blocks = splitByMarkers(text, RAG_SYSTEM_SPLITS, preamble);
-    return renderStructuredPrompt('System prompt — Qwen', text, blocks);
+    return renderStructuredPrompt('System prompt (Qwen)', text, blocks);
   }
 
   function renderRagUser(text) {
     if (!text) return '';
     const preamble = { label: 'Preámbulo', kind: 'static', desc: 'Texto introductorio.' };
     const blocks = splitByMarkers(text, RAG_USER_SPLITS, preamble);
-    return renderStructuredPrompt('User prompt — Qwen', text, blocks);
+    return renderStructuredPrompt('User prompt (Qwen)', text, blocks);
   }
 
   // ── Judge v2 (Gemma 4) ──
@@ -554,14 +554,14 @@
   function renderJudgeSystem(text) {
     if (!text) return '';
     const blocks = splitByMarkers(text, JUDGE_SYSTEM_SPLITS, JUDGE_SYSTEM_PREAMBLE);
-    return renderStructuredPrompt('System prompt — Gemma 4', text, blocks);
+    return renderStructuredPrompt('System prompt (Gemma 4)', text, blocks);
   }
 
   function renderJudgeUser(text, idx) {
     if (!text) return '';
     const preamble = { label: 'Cabecera', kind: 'static', desc: 'Instrucción de evaluación.' };
     const blocks = splitByMarkers(text, judgeUserSplits(text), preamble);
-    return renderStructuredPrompt(`Prompt TTP #${idx + 1} — Gemma 4`, text, blocks);
+    return renderStructuredPrompt(`Prompt TTP #${idx + 1} (Gemma 4)`, text, blocks);
   }
 
   function renderEvent(ev) {
@@ -867,7 +867,7 @@
     const banner = document.createElement('div');
     banner.id = 'replay-banner';
     banner.className = 'mb-4 rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-amber-200 text-sm';
-    banner.innerHTML = '⏪ <strong>Modo replay</strong> — reproduciendo el job #'
+    banner.innerHTML = '⏪ <strong>Modo replay</strong>: reproduciendo el job #'
       + REPLAY_JOB_ID + ' desde la base de datos (no requiere el PC). '
       + '<a href="/pipeline" class="underline hover:text-amber-100">Volver al modo en vivo</a>';
     const anchor = document.querySelector('#stage-prefilter');

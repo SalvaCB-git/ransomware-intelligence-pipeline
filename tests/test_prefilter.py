@@ -1,7 +1,7 @@
 """Tests del pre-filtrado determinista (Nivel 1) de `pc/prefilter.py`.
 
 Importa limpio en el host (usa `from __future__ import annotations`; las
-dependencias pesadas —chromadb, sentence-transformers— son lazy).
+dependencias pesadas (chromadb, sentence-transformers) son lazy).
 """
 import prefilter
 

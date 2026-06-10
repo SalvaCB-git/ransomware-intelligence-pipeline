@@ -1,10 +1,10 @@
-# data/ — Snapshot de la base de datos
+# data/: Snapshot de la base de datos
 
 > Forma de distribución de los datos de esta entrega: **snapshot versionado
 > sin texto de terceros**, verificado contra la BD canónica (decisión del
 > autor, 10-jun-2026).
 
-## `ransomware_intel.db` — snapshot reproducible SIN texto de terceros
+## `ransomware_intel.db`: snapshot reproducible SIN texto de terceros
 
 Snapshot de la BD canónica del proyecto generado el **10-jun-2026** con una
 única transformación respecto al original:
@@ -57,7 +57,7 @@ truncada) usado como contexto del juez v2. Se conserva congelado para que el
 juicio sea reproducible exactamente (un re-parse del bundle CTI actual daría
 un catálogo distinto).
 
-**Atribución:** las técnicas y definiciones proceden de MITRE ATT&CK® —
+**Atribución:** las técnicas y definiciones proceden de MITRE ATT&CK®,
 *reproduced with permission of The MITRE Corporation*
 (© The MITRE Corporation). MITRE ATT&CK® es una marca registrada de
 The MITRE Corporation. (Cubre también `pc/mitre_techniques.json`.)

@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Ransomware Intelligence Pipeline — API
+  title: Ransomware Intelligence Pipeline API
   version: "1.0"
   description: >
     API del servidor Flask del TFG *Ransomware Intelligence Pipeline*.
@@ -326,7 +326,7 @@ paths:
     post:
       tags: [demo]
       summary: Encola un demo job (protegido)
-      description: Auth parcial dentro del handler — solo el POST exige credenciales; el GET es público.
+      description: Auth parcial dentro del handler; solo el POST exige credenciales, el GET es público.
       security: [{ basicAuth: [] }]
       requestBody:
         content: { application/json: { schema: { type: object } } }
@@ -370,7 +370,7 @@ paths:
       description: >
         Sin parámetros, muestra el pipeline en vivo (requiere el worker del PC).
         Con `?replay=<job_id>` reproduce de forma estática las etapas de un job
-        ya completado leyendo `demo_events` (no requiere heartbeat del PC) —
+        ya completado leyendo `demo_events` (no requiere heartbeat del PC);
         usado para la defensa sin el PC (p. ej. `?replay=10`).
       parameters:
         - { name: replay, in: query, required: false, schema: { type: integer }, description: ID de un demo_job completado a reproducir estáticamente. }
@@ -493,6 +493,6 @@ paths:
     get:
       tags: [docs]
       summary: Documentación interactiva (Swagger UI)
-      description: Esta misma página — Swagger UI cargado por CDN sobre /static/openapi.yaml.
+      description: Esta misma página, Swagger UI cargado por CDN sobre /static/openapi.yaml.
       responses:
         "200": { description: Página HTML de Swagger UI. }

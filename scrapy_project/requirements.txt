@@ -43,7 +43,7 @@ readability-lxml==0.8.4.1
 tldextract==5.3.1
 
 # ── HTTP library ─────────────────────────────────────────────────────────────
-requests==2.33.0  # GHSA-gc5v-m9x4-r6x2 (temp file en extract_zipped_paths)
+requests==2.34.2  # GHSA-gc5v-m9x4-r6x2 (temp file en extract_zipped_paths)
 
 # ── Async networking (Scrapy dependency) ─────────────────────────────────────
 # 25.5.0 es el MÁXIMO que permite scrapy 2.14.2 (exige twisted<=25.5.0). El fix del

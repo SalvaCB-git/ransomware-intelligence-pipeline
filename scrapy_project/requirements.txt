@@ -49,7 +49,7 @@ requests==2.33.0  # GHSA-gc5v-m9x4-r6x2 (temp file en extract_zipped_paths)
 # 25.5.0 es el MÁXIMO que permite scrapy 2.14.2 (exige twisted<=25.5.0). El fix del
 # DoS GHSA-grgv-6hw6-v9g4 (twisted.names, punteros DNS) está en 26.4.0 pero exigiría
 # subir scrapy a 2.15.x. Exposición práctica baja: el proyecto NO corre servidor DNS.
-twisted==25.5.0
+twisted==26.4.0
 
 # ── SSL/TLS ──────────────────────────────────────────────────────────────────
 cryptography==46.0.7  # GHSA-p423-j2cm-9vmq (buffer overflow con buffers no contiguos)

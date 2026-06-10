@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Calibración Humana — TTP Pipeline</title>
+<title>Calibración Humana · TTP Pipeline</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@500;700&display=swap');
 :root {
@@ -124,9 +124,9 @@ code{color:var(--blue);}
 
 <script>
 const V = {
-  accept:    {label:'ACEPTAR',    icon:'✅',cls:'btn-acc',cc:'c-acc'},
-  reject:    {label:'RECHAZAR',   icon:'❌',cls:'btn-rej',cc:'c-rej'},
-  uncertain: {label:'INCERT.',    icon:'❓',cls:'btn-unc',cc:'c-unc'},
+  accept:    {label:'ACEPTAR',    icon:'✓',cls:'btn-acc',cc:'c-acc'},
+  reject:    {label:'RECHAZAR',   icon:'✗',cls:'btn-rej',cc:'c-rej'},
+  uncertain: {label:'INCERT.',    icon:'?',cls:'btn-unc',cc:'c-unc'},
 };
 const ECODES = [
   {code:'E1',label:'Abstracción',desc:'LLM acepta mención genérica sin comportamiento consumado'},
@@ -169,12 +169,12 @@ function renderPhase1(item){
   const hasQ=item.quote&&item.quote.trim().length>0;
   app().innerHTML=`
   <div class="card">
-    <div class="card-hdr"><span class="card-title">🔬 FASE 1 — EVALUACIÓN CIEGA</span></div>
+    <div class="card-hdr"><span class="card-title">FASE 1: EVALUACIÓN CIEGA</span></div>
     <div class="card-body">
       <div class="meta-row">
         <span class="badge b-src">${esc(item.source)}</span>
         <span class="badge ${item.sample_type==='control'?'b-ctrl':'b-strat'}">
-          ${item.sample_type==='control'?'⚙ CONTROL':'📊 MUESTRA'}
+          ${item.sample_type==='control'?'CONTROL':'MUESTRA'}
         </span>
         <span style="margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--muted);">#${item.id}</span>
       </div>
@@ -182,19 +182,19 @@ function renderPhase1(item){
         <span class="technique-id">${esc(item.technique_id)}</span>
         <a href="${esc(item.mitre_url)}" target="_blank" class="mitre-link">↗ MITRE ATT&CK</a>
       </div>
-      <div class="quote-box ${hasQ?'':'empty'}">${hasQ?esc(item.quote):'(Sin quote — usa el botón para ver el artículo completo)'}</div>
-      <button class="btn-art" id="btn-art" onclick="toggleArt(${item.article_id})">📄 Ver artículo completo [V]</button>
+      <div class="quote-box ${hasQ?'':'empty'}">${hasQ?esc(item.quote):'(Sin quote; usa el botón para ver el artículo completo)'}</div>
+      <button class="btn-art" id="btn-art" onclick="toggleArt(${item.article_id})">Ver artículo completo [V]</button>
       <div class="art-body" id="art-body"></div>
       <div class="v-label">TU VEREDICTO (sin ver el LLM)</div>
       <div class="v-buttons" id="vbtns">
         <button class="btn-v btn-acc" onclick="submitV('accept')">
-          <span class="icon">✅</span><span>ACEPTAR</span><span class="sc">[A]</span>
+          <span class="icon">✓</span><span>ACEPTAR</span><span class="sc">[A]</span>
         </button>
         <button class="btn-v btn-rej" onclick="submitV('reject')">
-          <span class="icon">❌</span><span>RECHAZAR</span><span class="sc">[R]</span>
+          <span class="icon">✗</span><span>RECHAZAR</span><span class="sc">[R]</span>
         </button>
         <button class="btn-v btn-unc" onclick="submitV('uncertain')">
-          <span class="icon">❓</span><span>INCERT.</span><span class="sc">[U]</span>
+          <span class="icon">?</span><span>INCERT.</span><span class="sc">[U]</span>
         </button>
       </div>
     </div>
@@ -203,7 +203,7 @@ function renderPhase1(item){
 
 async function toggleArt(aid){
   const box=e('art-body'), btn=e('btn-art');
-  if(artExpanded){box.style.display='none';artExpanded=false;btn.textContent='📄 Ver artículo completo [V]';return;}
+  if(artExpanded){box.style.display='none';artExpanded=false;btn.textContent='Ver artículo completo [V]';return;}
   box.style.display='block'; box.textContent='⟳ Cargando...';
   try{
     const d=await api('/api/calibration/article/'+aid);
@@ -211,7 +211,7 @@ async function toggleArt(aid){
       +esc(d.source)+' · '+esc(d.published_utc||'')
       +' <a href="'+esc(d.url)+'" target="_blank" style="color:var(--muted);margin-left:1rem;">↗ Original</a></div>'
       +esc(d.body||'');
-    artExpanded=true; btn.textContent='📄 Ocultar artículo [V]';
+    artExpanded=true; btn.textContent='Ocultar artículo [V]';
   }catch(err){box.textContent='✗ Error: '+err.message;}
 }
 
@@ -232,10 +232,10 @@ async function submitV(verdict){
 function renderPhase2Control(hv){
   app().innerHTML=`
   <div class="card">
-    <div class="card-hdr"><span class="card-title">✓ CONTROL — GUARDADO</span></div>
+    <div class="card-hdr"><span class="card-title">✓ CONTROL GUARDADO</span></div>
     <div class="card-body">
-      <div class="banner b-ctrl2">⚙ Muestra control (conf=1.0) — tu voto: <span class="${cc(hv)}">${hv.toUpperCase()}</span></div>
-      <button class="btn-primary" onclick="loadNext()">▶ SIGUIENTE →</button>
+      <div class="banner b-ctrl2">Muestra control (conf=1.0) · tu voto: <span class="${cc(hv)}">${hv.toUpperCase()}</span></div>
+      <button class="btn-primary" onclick="loadNext()">SIGUIENTE →</button>
     </div>
   </div>`;
 }
@@ -245,7 +245,7 @@ function renderPhase2(hv, lv, reasoning, agree){
   const lvInfo=V[lv]||{icon:'—',label:lv||'—'};
   app().innerHTML=`
   <div class="card">
-    <div class="card-hdr"><span class="card-title">🔍 FASE 2 — RECONCILIACIÓN</span></div>
+    <div class="card-hdr"><span class="card-title">FASE 2: RECONCILIACIÓN</span></div>
     <div class="card-body">
       <div class="result-row">
         <div class="result-item">
@@ -258,10 +258,10 @@ function renderPhase2(hv, lv, reasoning, agree){
         </div>
       </div>
       <div class="banner ${agree?'b-agree':'b-disagree'}">
-        ${agree?'✅ ACUERDO — mismo veredicto':'⚠ DESACUERDO — clasifica el tipo de error'}
+        ${agree?'✓ ACUERDO: mismo veredicto':'⚠ DESACUERDO: clasifica el tipo de error'}
       </div>
       ${reasoning?`<div class="rsn-label">REASONING DEL LLM</div><div class="rsn-box">${esc(reasoning)}</div>`:''}
-      ${agree?`<button class="btn-primary" onclick="loadNext()">▶ SIGUIENTE →</button>`:renderErrorForm()}
+      ${agree?`<button class="btn-primary" onclick="loadNext()">SIGUIENTE →</button>`:renderErrorForm()}
     </div>
   </div>`;
 }
@@ -273,7 +273,7 @@ function renderErrorForm(){
     ${ECODES.map(e=>`<button class="btn-err" id="e${e.code}" onclick="selError('${e.code}')" title="${esc(e.desc)}">${e.code} · ${e.label}</button>`).join('')}
   </div>
   <textarea class="notes" id="notes" placeholder="Nota opcional sobre el desacuerdo..."></textarea>
-  <button class="btn-primary" id="btn-save" onclick="saveRec()" disabled>💾 GUARDAR Y CONTINUAR</button>`;
+  <button class="btn-primary" id="btn-save" onclick="saveRec()" disabled>GUARDAR Y CONTINUAR</button>`;
 }
 
 function selError(code){
@@ -312,7 +312,7 @@ async function loadNext(){
 function renderDone(s){
   app().innerHTML=`
   <div class="card"><div class="card-body done-box">
-    <div class="big">🎉</div>
+    <div class="big">✓</div>
     <h2>CALIBRACIÓN COMPLETADA</h2>
     <p>${s.done} TTPs anotados · Acuerdo crudo: ${s.raw_agreement_pct!=null?s.raw_agreement_pct.toFixed(1)+'%':'—'}</p>
     <p style="margin-top:.75rem;">Ejecuta <code>compute_alpha.py</code> en tu PC local para calcular el Krippendorff Alpha.</p>

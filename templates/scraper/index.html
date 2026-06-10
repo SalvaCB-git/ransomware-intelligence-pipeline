@@ -81,12 +81,12 @@
           ⟳ Corriendo en background
         </button>
         <button onclick="stopJob()" class="text-xs font-mono uppercase tracking-wider px-3.5 py-2 rounded-md bg-rose-500/15 border border-rose-400/40 text-rose-200 hover:bg-rose-500/25 transition">
-          ⏹ Stop
+          Stop
         </button>
         {% if state.current_log_file %}
           <a href="/log/{{ state.current_log_file }}" target="_blank"
              class="text-xs font-mono uppercase tracking-wider px-3.5 py-2 rounded-md border border-ink-600 text-slate-200 hover:border-cyan-400 hover:text-cyan-300 transition">
-            📋 Ver log en vivo
+            Ver log en vivo
           </a>
         {% endif %}
       </div>
@@ -95,11 +95,11 @@
       <div class="flex flex-wrap items-center gap-2">
         <button id="btn-launch" onclick="launchSelected()"
                 class="text-xs font-mono uppercase tracking-wider px-4 py-2 rounded-md bg-cyan-500 text-ink-900 font-semibold hover:bg-cyan-400 transition">
-          ▶ Run selected
+          Run selected
         </button>
         <button onclick="launchAll()"
                 class="text-xs font-mono uppercase tracking-wider px-4 py-2 rounded-md border border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/15 transition">
-          ▶ Run all
+          Run all
         </button>
       </div>
       {% if state.finished_at %}
@@ -220,7 +220,7 @@
       <button id="btn-preprocess" onclick="triggerPreprocess()"
               class="ml-auto text-xs font-mono uppercase tracking-wider px-3.5 py-2 rounded-md border border-violet-400/40 text-violet-200 hover:bg-violet-500/15 transition disabled:opacity-50 disabled:cursor-not-allowed"
               {% if state.preprocess_running %}disabled{% endif %}>
-        ⚙ Preprocess now
+        Preprocess now
       </button>
     </div>
   </section>
@@ -282,7 +282,7 @@
               </td>
               <td class="py-2 pr-3">
                 {% if f.log %}
-                  <a href="/log/{{ f.log }}" target="_blank" class="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded border border-ink-600 text-cyan-300 hover:border-cyan-400 transition">📋 Log</a>
+                  <a href="/log/{{ f.log }}" target="_blank" class="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded border border-ink-600 text-cyan-300 hover:border-cyan-400 transition">Log</a>
                 {% endif %}
               </td>
             </tr>
@@ -401,7 +401,7 @@ function showToast(msg) {
 async function stopJob() {
   if (!confirm('¿Detener el scraping en curso?')) return;
   await fetch('/stop', { method: 'POST' });
-  showToast('⏹ Stop solicitado: el spider actual terminará y se parará la cola');
+  showToast('Stop solicitado: el spider actual terminará y se parará la cola');
 }
 
 async function triggerPreprocess() {
@@ -410,9 +410,9 @@ async function triggerPreprocess() {
   const r = await fetch('/trigger/preprocess', { method: 'POST' });
   const data = await r.json();
   if (data.status === 'started') {
-    showToast('⚙ Preprocess iniciado: revisa el log en unos segundos');
+    showToast('Preprocess iniciado: revisa el log en unos segundos');
   } else if (data.status === 'already_running') {
-    showToast('⚙ El preprocess ya está corriendo');
+    showToast('El preprocess ya está corriendo');
   } else {
     showToast('✗ Error al lanzar preprocess');
     if (btn) btn.disabled = false;

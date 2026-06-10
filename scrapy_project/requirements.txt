@@ -16,7 +16,7 @@
 
 # ── Core scraping framework ──────────────────────────────────────────────────
 # 2.14.2: fix GHSA-cwxj-rr6w-m6w7 (import arbitrario de módulos vía Referrer-Policy).
-scrapy==2.14.2
+scrapy==2.16.0
 
 # ── Playwright integration (JavaScript rendering for anti-bot spiders) ───────
 scrapy-playwright==0.0.46

@@ -1,9 +1,8 @@
 # data/ — Snapshot de la base de datos
 
-> **⚠ PROVISIONAL.** La forma definitiva de distribución de los datos
-> (snapshot versionado / release asset / Zenodo con DOI) está pendiente de
-> decisión final del autor. Lo que hay aquí es la opción recomendada por la
-> auditoría de entrega, ya preparada y verificada.
+> Forma de distribución de los datos de esta entrega: **snapshot versionado
+> sin texto de terceros**, verificado contra la BD canónica (decisión del
+> autor, 10-jun-2026).
 
 ## `ransomware_intel.db` — snapshot reproducible SIN texto de terceros
 

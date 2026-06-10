@@ -82,9 +82,8 @@ truth humano). **Todas las cifras de la tabla de reproducción se reproducen con
 este snapshot** (verificado: ningún script de análisis lee `body`). Detalle,
 caveats y cómo regenerar el corpus completo: [data/README.md](data/README.md).
 
-> El snapshot es la opción de distribución **provisional**; la decisión
-> definitiva (snapshot versionado / release asset / Zenodo con DOI) se tomará
-> antes de la publicación del repositorio.
+> El snapshot versionado es la forma de distribución de los datos de esta
+> entrega. El corpus full-text completo se conserva fuera del repositorio.
 
 ---
 

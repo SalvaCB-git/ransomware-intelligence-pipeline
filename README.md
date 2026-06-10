@@ -285,7 +285,6 @@ ransomware-intelligence-pipeline/
 ├── judge_v2.py                       # CLI offline: validate / rejudge / rejudge_conf1
 ├── judge_bench.py                    # bench de determinismo del juez (temperature=0)
 ├── Dockerfile · docker-compose.yml   # build + binding 127.0.0.1:7000
-├── LICENSE                           # placeholder — pendiente tras la defensa
 ├── .env.example                      # plantilla de configuración del servidor
 ├── requirements-analysis.txt         # deps de los scripts de análisis (.venv-analysis)
 ├── requirements-dev.txt              # deps de la suite de tests (.venv-dev)
@@ -336,6 +335,7 @@ Colaboración académica: Florida International University, Group G-013
 (mentor: Weidong Zhu) — base del paper conjunto en preparación
 (objetivo USENIX / ACM CCS / NDSS, finales 2026).
 
-Sin licencia formal hasta la defensa del TFG ([LICENSE](LICENSE) es un
-placeholder). La decisión de licencia (MIT / Apache 2.0 / académica
-restrictiva) se tomará tras la entrega, coordinada con FIU.
+Sin licencia formal hasta la defensa del TFG (todos los derechos reservados
+por defecto; el repositorio se distribuye al tribunal con fines de evaluación
+académica). La decisión de licencia (MIT / Apache 2.0 / académica restrictiva)
+se tomará tras la entrega, coordinada con FIU.

@@ -52,7 +52,7 @@ requests==2.33.0  # GHSA-gc5v-m9x4-r6x2 (temp file en extract_zipped_paths)
 twisted==25.5.0
 
 # ── SSL/TLS ──────────────────────────────────────────────────────────────────
-cryptography==46.0.7  # GHSA-p423-j2cm-9vmq (buffer overflow con buffers no contiguos)
+cryptography==48.0.1  # GHSA-p423-j2cm-9vmq (buffer overflow con buffers no contiguos)
 
 # ── Optional: Cloudflare bypass ──────────────────────────────────────────────
 # Uncomment if you hit Cloudflare-protected pages

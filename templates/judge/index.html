@@ -222,7 +222,7 @@
     </header>
     <p class="text-sm text-slate-400 mb-4">
       Cobertura del juez v2: 377/484 (78%). Los 107 sin v2 modelados como worst/complete/best case
-      para acotar el sesgo de cobertura (MNAR — Missing Not At Random).
+      para acotar el sesgo de cobertura (MNAR, Missing Not At Random).
     </p>
     <div class="h-56 relative"><canvas id="chart-sensitivity"></canvas></div>
   </div>
@@ -328,9 +328,9 @@ function renderMigration(migration, v1Totals) {
   container.innerHTML = `
     <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">Sobre los <span class="font-mono text-slate-300">${v1Total.toLocaleString('es-ES')}</span> TTPs juzgados por v1 (conf=0.75)</div>
     ${block('v1 accept → v2 accept (mantenidos)', aa, v1AcceptTotal, 'bg-emerald-400/80', 'TTPs sobrevivientes al re-juicio de Gemma 4')}
-    ${block('v1 accept → v2 <span class="text-rose-300">reject</span> (corregidos)', ar, v1AcceptTotal, 'bg-rose-400/80', 'TTPs retirados — sobreaceptación corregida')}
-    ${block('v1 reject (no re-juzgados)', v1RejectTotal, v1Total, 'bg-slate-500/60', 'No pasan por v2 — siguen como rechazo')}
-    ${block('v1 uncertain (no re-juzgados)', v1UncTotal, v1Total, 'bg-slate-500/40', 'No pasan por v2 — siguen como duda')}
+    ${block('v1 accept → v2 <span class="text-rose-300">reject</span> (corregidos)', ar, v1AcceptTotal, 'bg-rose-400/80', 'TTPs retirados: sobreaceptación corregida')}
+    ${block('v1 reject (no re-juzgados)', v1RejectTotal, v1Total, 'bg-slate-500/60', 'No pasan por v2; siguen como rechazo')}
+    ${block('v1 uncertain (no re-juzgados)', v1UncTotal, v1Total, 'bg-slate-500/40', 'No pasan por v2; siguen como duda')}
   `;
 }
 

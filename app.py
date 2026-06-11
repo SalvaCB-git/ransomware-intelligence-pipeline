@@ -85,6 +85,7 @@ _EVAL_F1_DIR = _Path("/app/outputs/evaluation_f1")
 _LONGITUDINAL_DIR = _Path("/app/outputs/longitudinal")
 _COOCCURRENCE_DIR = _Path("/app/outputs/cooccurrence")
 _CATALOG_LAG_DIR = _Path("/app/outputs/catalog_lag")
+_KRIPP_DIR = _Path("/app/outputs/krippendorff_segmented")
 
 # Configuración del juez v2 (la lógica vive en judge_core.py).
 _JUDGE_MODEL = os.environ.get("GEMINI_MODEL", DEFAULT_MODEL)
@@ -1713,48 +1714,21 @@ def calibration_stats_data():
     finally:
         conn.close()
 
-    # Krippendorff α por fuente: snapshot de la sesión 19 (16-abr-2026).
-    #
-    # Calcularlo en caliente desde la BD actual daría valores distintos a los
-    # que cita la memoria (§calibración), porque el corpus ha cambiado desde la sesión
-    # 19 (más anotaciones humanas, dedup B1 aplicado, el juez v1 amplió
-    # cobertura). Bajar `min_n` en krippendorff_segmented.py para incluir
-    # Huntress/Trendmicro/Elastic/Welivesecurity tampoco arregla nada: sus α
-    # se recalcularían sobre la BD evolucionada y no encajarían con los
-    # números que aparecen en la memoria.
-    #
-    # La α del contrato (α=0,6461 sobre la estratificada, Objetivo 3) no
-    # depende de este corte y se puede reproducir desde
-    # outputs/krippendorff_segmented/headline.csv, que el script sí regenera
-    # de forma consistente.
-    #
-    # Pasar a leer el CSV dinámicamente exigiría reescribir la narrativa de
-    # la memoria (§calibración) para que cuadre con la BD actual. Trabajo a futuro,
-    # post-defensa.
-    alpha_by_source = [
-        {"source": "huntress",            "alpha": 0.73,  "n": 5,   "verdict_h": "good"},
-        {"source": "trendmicro_research", "alpha": 0.78,  "n": 6,   "verdict_h": "good"},
-        {"source": "elastic_security_labs","alpha": 0.21,  "n": 9,   "verdict_h": "marginal"},
-        {"source": "cisa",                "alpha": 0.16,  "n": 11,  "verdict_h": "marginal"},
-        {"source": "dfir_report",         "alpha": 0.10,  "n": 17,  "verdict_h": "marginal"},
-        {"source": "microsoft_security",  "alpha": -0.05, "n": 25,  "verdict_h": "poor"},
-        {"source": "cisco_talos",         "alpha": -0.09, "n": 38,  "verdict_h": "poor"},
-        {"source": "crowdstrike_blog",    "alpha": -0.10, "n": 31,  "verdict_h": "poor"},
-        {"source": "bc_site",             "alpha": -0.18, "n": 163, "verdict_h": "poor"},
-        {"source": "red_canary",          "alpha": -0.27, "n": 7,   "verdict_h": "poor"},
-        {"source": "welivesecurity",      "alpha": -0.30, "n": 4,   "verdict_h": "poor"},
-        {"source": "sentinelone_blog",    "alpha": -0.38, "n": 31,  "verdict_h": "poor"},
-        {"source": "unit42",              "alpha": -0.60, "n": 29,  "verdict_h": "poor"},
-    ]
+    # Krippendorff α por fuente: se sirve el CSV canónico que regenera
+    # krippendorff_segmented.py (cortes v1 y v2, min_n=10). Es la misma fuente
+    # de verdad que respalda las cifras de la memoria; el snapshot histórico
+    # de la sesión 19 quedó obsoleto tras el dedup y se retiró de la UI.
+    alpha_per_source = _read_csv_records(_KRIPP_DIR / "per_source.csv")
 
     return jsonify({
         "sample_distribution":  sample_distribution,
         "confusion_v1":         confusion_v1,
         "control_distribution": control_distribution,
         "taxonomy":             taxonomy,
-        "alpha_by_source":      alpha_by_source,
+        "alpha_per_source":     alpha_per_source,
         "alpha_global_v1":      -0.1452,
         "alpha_global_v2":      0.5738,
+        "alpha_stratified_v2":  0.6461,
         "quotes":               quotes,
     })
 

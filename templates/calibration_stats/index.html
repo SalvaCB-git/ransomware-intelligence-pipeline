@@ -62,7 +62,7 @@
       <div class="text-[10px] uppercase tracking-[0.18em] text-emerald-300/80 font-semibold mb-3">Control · conf=1.0 · N=100</div>
       <div class="space-y-2 text-[12px]" id="dist-control"></div>
       <p class="text-[11px] text-slate-500 mt-3">
-        <span class="text-rose-300">Hallazgo crítico</span>: humano acepta solo 41% de conf=1.0; la suposición arquitectónica "inequívoco" estaba rota.
+        <span class="text-rose-300">Hallazgo crítico</span>: humano acepta solo 41% de conf=1.0 — la suposición arquitectónica "inequívoco" estaba rota.
       </p>
     </div>
   </div>
@@ -101,14 +101,14 @@
         <div class="font-mono text-cyan-200" id="agreement-crude">—</div>
       </div>
       <div>
-        <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-1">Krippendorff α<sub>K</sub> v1</div>
+        <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-1">Krippendorff α<sub>K</sub> v1 <span class="normal-case">(ordinal, N=384)</span></div>
         <div class="font-mono text-rose-300">−0.1452</div>
         <div class="text-[10px] text-slate-500 mt-0.5">peor que aleatorio</div>
       </div>
       <div>
-        <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-1">Krippendorff α<sub>K</sub> v2</div>
+        <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-1">Krippendorff α<sub>K</sub> v2 <span class="normal-case">(combined, N=377)</span></div>
         <div class="font-mono text-emerald-300">0.5738</div>
-        <div class="text-[10px] text-slate-500 mt-0.5">moderado</div>
+        <div class="text-[10px] text-slate-500 mt-0.5">moderado · estratificada (Obj. 3): <span class="font-mono text-emerald-200">0.6461</span> (N=278)</div>
       </div>
       <div class="pt-2 border-t border-ink-700">
         <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-1">Salto v1 → v2</div>
@@ -135,22 +135,22 @@
 <section class="rounded-2xl border border-ink-700 bg-ink-800/60 p-6 mb-6">
   <header class="flex items-baseline justify-between mb-1 flex-wrap gap-2">
     <h2 class="text-lg font-semibold text-white">Krippendorff α<sub>K</sub> por fuente</h2>
-    <span class="text-[11px] font-mono text-slate-500">computado en sesión 19 con compute_alpha.py</span>
+    <span class="text-[11px] font-mono text-slate-500">krippendorff_segmented.py · per_source.csv · N≥10</span>
   </header>
   <p class="text-sm text-slate-400 mb-4">
-    Desglose por fuente del corpus. Las fuentes con narrativa más técnica (Huntress, TrendMicro) tienen
-    α positivo; las periodísticas/marketing (BleepingComputer, SentinelOne) saturan en negativo.
-    Coherente con la jerarquía CTI Echo Chamber.
+    Acuerdo humano↔juez por fuente, en los cortes v1 y v2. El v2 mejora en todas las fuentes,
+    con heterogeneidad notable entre ellas; la diferencia no dibuja una jerarquía nítida
+    de calidad por tipo de fuente (las categorías se entrelazan).
   </p>
   <div class="overflow-x-auto">
     <table class="w-full text-[12px]" id="alpha-table">
       <thead>
         <tr class="text-[10px] uppercase tracking-[0.16em] text-slate-500 border-b border-ink-700">
           <th class="text-left py-2 pr-3 font-medium">Fuente</th>
-          <th class="text-right py-2 pr-3 font-medium">N</th>
-          <th class="text-right py-2 pr-3 font-medium">α<sub>K</sub></th>
-          <th class="text-left py-2 pr-3 font-medium" style="min-width:280px">Visual (escala −1 → +1)</th>
-          <th class="text-left py-2 pr-3 font-medium">Calidad</th>
+          <th class="text-right py-2 pr-3 font-medium">N (v2)</th>
+          <th class="text-right py-2 pr-3 font-medium">α<sub>K</sub> v1</th>
+          <th class="text-right py-2 pr-3 font-medium">α<sub>K</sub> v2</th>
+          <th class="text-left py-2 pr-3 font-medium" style="min-width:280px">α v2 (escala −1 → +1)</th>
         </tr>
       </thead>
       <tbody id="alpha-tbody"></tbody>
@@ -369,35 +369,42 @@ function renderTaxonomy() {
   }).join('');
 }
 
-// ── 4. Alpha por fuente ───────────────────────────────────────────────────────
+// ── 4. Alpha por fuente (per_source.csv canónico: cortes v1 y v2) ────────────
 function renderAlphaBySource() {
   const tb = document.getElementById('alpha-tbody');
-  const rows = [...DATA.alpha_by_source].sort((a, b) => b.alpha - a.alpha);
-  // Escala visual: -1 ... 1, centro en 0
-  // 0 = 50%, +1 = 100%, -1 = 0%
+  const bySource = {};
+  for (const r of (DATA.alpha_per_source || [])) {
+    const src = r.source;
+    if (!bySource[src]) bySource[src] = {};
+    bySource[src][r.judge] = { n: Number(r.n), alpha: Number(r.alpha_binary) };
+  }
+  const rows = Object.entries(bySource)
+    .map(([source, cuts]) => ({ source, v1: cuts.v1 || null, v2: cuts.v2 || null }))
+    .sort((a, b) => (b.v2?.alpha ?? -2) - (a.v2?.alpha ?? -2));
+
+  const fmtA = (cut) => {
+    if (!cut || !isFinite(cut.alpha)) return '<span class="text-slate-600">—</span>';
+    const a = cut.alpha;
+    const cls = a >= 0.6 ? 'text-emerald-300' : a >= 0.0 ? 'text-cyan-300' : 'text-rose-300';
+    return `<span class="${cls}">${a >= 0 ? '+' : ''}${a.toFixed(3)}</span>`;
+  };
+
+  // Escala visual del α v2: -1 ... 1, centro en 0
   tb.innerHTML = rows.map(r => {
-    const a = r.alpha;
-    const pos = ((a + 1) / 2 * 100).toFixed(2);
-    const aCls = a >= 0.6 ? 'text-emerald-300' : a >= 0.0 ? 'text-cyan-300' : 'text-rose-300';
-    const verdictMap = {
-      good:     ['Buena',   'bg-emerald-500/15 text-emerald-200 border-emerald-400/30'],
-      marginal: ['Marginal','bg-cyan-500/15 text-cyan-200 border-cyan-400/30'],
-      poor:     ['Pobre',   'bg-rose-500/15 text-rose-200 border-rose-400/30'],
-    };
-    const [vlabel, vcls] = verdictMap[r.verdict_h] || ['—', 'bg-ink-700/50 text-slate-300 border-ink-600'];
-    return `<tr class="hover:bg-ink-700/30 border-b border-ink-700/50">
-      <td class="py-2 pr-3 font-mono text-slate-200">${r.source}</td>
-      <td class="py-2 pr-3 text-right font-mono text-slate-400">${r.n}</td>
-      <td class="py-2 pr-3 text-right font-mono ${aCls}">${a >= 0 ? '+' : ''}${a.toFixed(3)}</td>
-      <td class="py-2 pr-3">
+    const a = r.v2 ? r.v2.alpha : null;
+    const bar = (a == null || !isFinite(a)) ? '' : `
         <div class="relative h-3 rounded-full bg-ink-700 overflow-hidden">
           <div class="absolute top-0 bottom-0 w-px bg-slate-500" style="left:50%"></div>
           <div class="absolute top-0 bottom-0 ${a >= 0 ? 'bg-emerald-400/70' : 'bg-rose-400/70'}"
                style="${a >= 0 ? `left:50%; width:${(a*50).toFixed(2)}%` : `right:50%; width:${(-a*50).toFixed(2)}%`}"></div>
         </div>
-        <div class="flex justify-between text-[9px] font-mono text-slate-600 mt-0.5"><span>−1</span><span>0</span><span>+1</span></div>
-      </td>
-      <td class="py-2 pr-3"><span class="text-[10px] px-1.5 py-0.5 rounded border ${vcls}">${vlabel}</span></td>
+        <div class="flex justify-between text-[9px] font-mono text-slate-600 mt-0.5"><span>−1</span><span>0</span><span>+1</span></div>`;
+    return `<tr class="hover:bg-ink-700/30 border-b border-ink-700/50">
+      <td class="py-2 pr-3 font-mono text-slate-200">${r.source}</td>
+      <td class="py-2 pr-3 text-right font-mono text-slate-400">${r.v2 ? r.v2.n : '—'}</td>
+      <td class="py-2 pr-3 text-right font-mono">${fmtA(r.v1)}</td>
+      <td class="py-2 pr-3 text-right font-mono">${fmtA(r.v2)}</td>
+      <td class="py-2 pr-3">${bar}</td>
     </tr>`;
   }).join('');
 }

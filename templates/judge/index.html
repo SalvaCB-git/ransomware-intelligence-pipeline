@@ -28,7 +28,7 @@
   <article class="rounded-xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 to-transparent p-4">
     <div class="text-[10px] uppercase tracking-[0.18em] text-emerald-300/80 font-semibold mb-1">Hallazgo · fiabilidad</div>
     <div class="font-mono text-emerald-100 text-lg">α<sub>K</sub>: −0.145 → 0.574</div>
-    <div class="mt-1 text-xs text-slate-400">Krippendorff salta de "peor que aleatorio" (v1) a moderado (v2). Salto de <span class="text-emerald-300 font-mono">+0.72</span>.</div>
+    <div class="mt-1 text-xs text-slate-400">Krippendorff salta de "peor que aleatorio" (v1 ordinal, N=384) a moderado (v2 combined, N=377): <span class="text-emerald-300 font-mono">+0.72</span>. Sobre la estratificada (Obj. 3): <span class="text-emerald-300 font-mono">0.646</span> (N=278).</div>
   </article>
   <article class="rounded-xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-4">
     <div class="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80 font-semibold mb-1">Hallazgo · convergencia</div>
@@ -38,7 +38,7 @@
   <article class="rounded-xl border border-violet-400/20 bg-gradient-to-br from-violet-500/10 to-transparent p-4">
     <div class="text-[10px] uppercase tracking-[0.18em] text-violet-300/80 font-semibold mb-1">Hallazgo · F1 pipeline</div>
     <div class="font-mono text-violet-100 text-lg">0.421 → 0.726</div>
-    <div class="mt-1 text-xs text-slate-400">F1 combined post-stratificado: <span class="text-violet-300 font-mono">+30.5pp</span> al añadir v2 sobre el extractor solo.</div>
+    <div class="mt-1 text-xs text-slate-400">F1 al añadir v2 sobre el extractor solo: <span class="text-violet-300 font-mono">+30.5pp</span>, comparación indicativa (N=484 vs N=377); el like-for-like homogéneo es <span class="text-violet-300 font-mono">≈+21.5pp</span>.</div>
   </article>
 </section>
 
@@ -222,7 +222,7 @@
     </header>
     <p class="text-sm text-slate-400 mb-4">
       Cobertura del juez v2: 377/484 (78%). Los 107 sin v2 modelados como worst/complete/best case
-      para acotar el sesgo de cobertura (MNAR, Missing Not At Random).
+      para acotar el sesgo de cobertura (MNAR — Missing Not At Random).
     </p>
     <div class="h-56 relative"><canvas id="chart-sensitivity"></canvas></div>
   </div>
@@ -328,9 +328,9 @@ function renderMigration(migration, v1Totals) {
   container.innerHTML = `
     <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">Sobre los <span class="font-mono text-slate-300">${v1Total.toLocaleString('es-ES')}</span> TTPs juzgados por v1 (conf=0.75)</div>
     ${block('v1 accept → v2 accept (mantenidos)', aa, v1AcceptTotal, 'bg-emerald-400/80', 'TTPs sobrevivientes al re-juicio de Gemma 4')}
-    ${block('v1 accept → v2 <span class="text-rose-300">reject</span> (corregidos)', ar, v1AcceptTotal, 'bg-rose-400/80', 'TTPs retirados: sobreaceptación corregida')}
-    ${block('v1 reject (no re-juzgados)', v1RejectTotal, v1Total, 'bg-slate-500/60', 'No pasan por v2; siguen como rechazo')}
-    ${block('v1 uncertain (no re-juzgados)', v1UncTotal, v1Total, 'bg-slate-500/40', 'No pasan por v2; siguen como duda')}
+    ${block('v1 accept → v2 <span class="text-rose-300">reject</span> (corregidos)', ar, v1AcceptTotal, 'bg-rose-400/80', 'TTPs retirados — sobreaceptación corregida')}
+    ${block('v1 reject (no re-juzgados)', v1RejectTotal, v1Total, 'bg-slate-500/60', 'No pasan por v2 — siguen como rechazo')}
+    ${block('v1 uncertain (no re-juzgados)', v1UncTotal, v1Total, 'bg-slate-500/40', 'No pasan por v2 — siguen como duda')}
   `;
 }
 

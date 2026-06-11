@@ -1648,7 +1648,7 @@ def calibration_stats_data():
     - confusion_v1:        matriz 3×3 humano vs LLM v1 (sobre la muestra estratificada)
     - control_distribution: distribución del grupo de control (sin v1)
     - taxonomy:            cuentas por error_taxonomy_code (E1-E5)
-    - alpha_by_source:     Krippendorff α por fuente (de la sesión 19)
+    - alpha_per_source:    Krippendorff α por fuente (per_source.csv canónico, cortes v1/v2)
     - quotes:              las 484 anotaciones completas (para el visor de quotes en el cliente)
     """
     conn = _get_db()
@@ -1948,7 +1948,8 @@ def judge_compare_data():
         "v1_totals":        v1_totals,
         "v2_totals":        v2_totals,
         "migration":        migration,
-        # Alpha v1 (Krippendorff sobre la muestra estratificada, sesión 19). No
+        # Alpha v1 (Krippendorff ordinal sobre la muestra de diseño, N=384;
+        # reproducible en outputs/krippendorff_segmented/headline.csv). No
         # hay CSV asociado: es un valor histórico que dejamos hardcodeado.
         "alpha_v1":         -0.1452,
     })

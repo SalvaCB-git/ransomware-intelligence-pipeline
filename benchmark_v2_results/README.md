@@ -37,7 +37,7 @@ Esto produce P/R/F1 sobre `calibration_sample` con las mismas reglas TP/FP/FN/Un
 del resto del benchmark.
 
 **Uso esperado:** input para la **fase 2 del benchmark** (extractor permisivo +
-juez estricto, ver la memoria §benchmark) en el paper conjunto con FIU.
+juez estricto, ver la memoria §benchmark).
 **No bloquea la entrega del TFG**: el corpus limpio definitivo (2.355 TTPs) y
 las cifras estrella (F1=0,726, convergencia 41,0/41,4) son independientes de
 esta evaluación pendiente.

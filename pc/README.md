@@ -205,8 +205,8 @@ necesita una copia de la BD **con** `articles.body` (re-extrae desde el texto).
 2. **Claude Opus pendiente de evaluación.** `../benchmark_v2_results/claude_opus/extractions.jsonl`
    contiene las extracciones raw de 402 artículos generadas en sesión 30, pero
    `evaluate_benchmark.py` no las ha procesado: el JSONL se generó en el
-   servidor y no se copió al PC a tiempo. Pendiente para la fase 2 del paper
-   con FIU; no bloquea la entrega del TFG (cifras estrella son independientes).
+   servidor y no se copió al PC a tiempo. Pendiente para la fase 2 del
+   benchmark; no bloquea la entrega del TFG (cifras estrella son independientes).
 
 3. **`rag_extractor.py` tool_lookup: corregido en código; corpus extraído pre-fix.**
    El matcher de herramientas YA usa word boundaries (`_TOOL_PATTERNS` con `\b`,

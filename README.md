@@ -6,8 +6,7 @@ Pipeline end-to-end de recolección automatizada y análisis semántico de threa
 intelligence sobre ransomware. Combina scraping continuo de 13 fuentes públicas,
 extracción de TTPs (MITRE ATT&CK) con LLM local (Qwen 2.5 14B + RAG), validación
 con segundo LLM externo (Gemma 4 26B vía API) y análisis longitudinal del corpus
-2021-2026. Construido para responder los 5 objetivos del contrato del TFG y
-sostener una publicación académica posterior con FIU.
+2021-2026. Construido para responder los 5 objetivos del contrato del TFG.
 
 > **Este README es la guía del repositorio.** La narrativa académica completa
 > (motivación, diseño, calibración, evaluación, hallazgos) está en la **memoria
@@ -243,8 +242,7 @@ los clientes del PC. La decisión es deliberada: simplicidad operativa y una
 
 **Trabajo futuro post-defensa:** defensa en profundidad real con credenciales
 distintas en cada capa (NPM Access List con credencial A, Flask Basic Auth
-con credencial B, propagación coordinada a los clientes). Documentado para
-posible iteración del paper con FIU.
+con credencial B, propagación coordinada a los clientes).
 
 ---
 
@@ -330,11 +328,8 @@ ransomware-intelligence-pipeline/
 
 **Salvador Cascón Bertomeu**, Trabajo Fin de Grado 2026.
 Tutor: Alejandro José Freire Mendoza.
-Colaboración académica: Florida International University, Group G-013
-(mentor: Weidong Zhu); base del paper conjunto en preparación
-(objetivo USENIX / ACM CCS / NDSS, finales 2026).
 
 Sin licencia formal hasta la defensa del TFG (todos los derechos reservados
 por defecto; el repositorio se distribuye al tribunal con fines de evaluación
 académica). La decisión de licencia (MIT / Apache 2.0 / académica restrictiva)
-se tomará tras la entrega, coordinada con FIU.
+se tomará tras la entrega.

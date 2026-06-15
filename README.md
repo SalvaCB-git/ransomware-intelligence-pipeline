@@ -329,7 +329,7 @@ ransomware-intelligence-pipeline/
 **Salvador Cascón Bertomeu**, Trabajo Fin de Grado 2026.
 Tutor: Alejandro José Freire Mendoza.
 
-Sin licencia formal hasta la defensa del TFG (todos los derechos reservados
-por defecto; el repositorio se distribuye al tribunal con fines de evaluación
-académica). La decisión de licencia (MIT / Apache 2.0 / académica restrictiva)
-se tomará tras la entrega.
+Repositorio público sin licencia formal: todos los derechos reservados por
+defecto (el código puede consultarse, pero su reutilización requiere permiso
+expreso del autor). La decisión de licencia (MIT / Apache 2.0 / académica
+restrictiva) se tomará tras la entrega.

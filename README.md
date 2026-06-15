@@ -324,6 +324,33 @@ ransomware-intelligence-pipeline/
 
 ---
 
+## Dependencias de terceros y sus licencias
+
+Todas las bibliotecas y recursos externos que usa el proyecto son de código
+abierto bajo licencias permisivas, y sus versiones están fijadas en los ficheros
+`requirements-*.txt`, `scrapy_project/requirements.txt` y `pc/requirements.txt`.
+La licencia canónica de cada paquete es la que distribuye en PyPI; a modo de
+referencia:
+
+- **BSD** (3-Clause / 2-Clause): Scrapy, scrapy-playwright, parsel, lxml, Flask,
+  Jinja2, numpy, scipy, scikit-learn, PyTorch, python-dotenv, tldextract,
+  matplotlib (licencia matplotlib, estilo BSD).
+- **Apache 2.0**: Playwright, requests, cryptography, ChromaDB, transformers,
+  sentence-transformers, tokenizers, huggingface_hub, safetensors,
+  readability-lxml, python-dateutil.
+- **MIT**: APScheduler, Twisted, krippendorff.
+- **MPL 2.0**: tqdm.
+
+Recursos del frontend cargados por CDN: Tailwind CSS (MIT), HTMX (BSD-2),
+Chart.js (MIT), D3.js (ISC).
+
+**MITRE ATT&CK®**: las técnicas y definiciones (`data/mitre_attack_cache.json`,
+`pc/mitre_techniques.json`) proceden de The MITRE Corporation, *reproduced with
+permission of The MITRE Corporation*; MITRE ATT&CK® es una marca registrada de
+The MITRE Corporation.
+
+---
+
 ## Licencia y autoría
 
 **Salvador Cascón Bertomeu**, Trabajo Fin de Grado 2026.

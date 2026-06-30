@@ -15,7 +15,7 @@
 | 1 | Recolección automatizada y continua | ≥3.000 artículos, ≥10 fuentes, cloud | **3.871 artículos**, **13 fuentes**, OCI 24/7 | Cumplido |
 | 2 | Pipeline RAG con MITRE ATT&CK | F1 ≥ 0.70, JSON ≥ 90%, ≥50 anotados | **F1 = 0.726**, **JSON 96.34%**, **484 anotados** | Cumplido |
 | 3 | Validación con calibración humana | Krippendorff α ≥ 0.60 sobre ≥200 TTPs estratificados | **α = 0.6461 sobre N = 278** pares (de muestra estratificada de 384) | Cumplido |
-| 4 | Análisis longitudinal 2021-2025 | ≥5 tendencias significativas + datos exportables | **6 Mann-Kendall confirmatorias (p<0,05) + 5 exploratorias (p<0,10) + 13 emergentes (normalizadas)**, 10 figuras + 10 CSVs | Cumplido |
+| 4 | Análisis longitudinal 2021-2025 | ≥5 tendencias significativas + datos exportables | **6 Mann-Kendall nominalmente significativas (p<0,05) + 5 exploratorias (p<0,10) + 13 emergentes (normalizadas)**, 10 figuras + 10 CSVs | Cumplido |
 | 5 | Evaluación calidad pipeline | TP rate sobre ≥200 anotados | **Precision = 0.783, Recall = 0.677** sobre N = 377 | Cumplido |
 
 Los cinco objetivos del contrato se cumplen con holgura. Toda métrica reportada es reproducible mediante los scripts del repositorio y los CSVs en `outputs/`. Las cifras citadas son consistentes con las almacenadas en `data/ransomware_intel.db` (SQLite) en el momento del informe.
@@ -115,7 +115,7 @@ Disponibilidad continua se evidencia en los logs de Docker (`docker logs scraper
 
 3. **LLM-as-a-judge v2** (`judge_v2.py`):
    - Gemma 4 26B vía Google AI Studio API
-   - Re-evalúa cada TTP extraído contra el artículo original
+   - Contrasta la cita de evidencia de cada TTP con su definición MITRE
    - Veredicto accept/reject con justificación textual
 
 ### Bondad del esquema JSON
@@ -138,7 +138,7 @@ Cualquier criterio razonable supera el umbral del 90% del contrato. Solo el crit
 - **Binarización:** humano `uncertain → reject` (convención CTI: ambiguo = no inyectable en defensa automática)
 - **IC 95% bootstrap (percentil para el combinado; BCa por estrato):** F1 = 0.726 [0.636, 0.799], n_iter = 1000, seed = 42
 - **Mejora frente a extractor solo (sin juez):** F1 0.421 → 0.726 (**+30,5 pp**, comparación *indicativa*: denominadores distintos, extractor N=484 vs sistema N=377, y el extractor tiene *recall* unitario por construcción).
-  - **Homogéneo (like-for-like) ≈ +21,5 pp:** el `0,726` del sistema es un promedio ponderado con pesos de post-estratificación **0,34 (estratificado) / 0,66 (control)** (`0,34·0,742 + 0,66·0,718 = 0,726`). Reponderando el F1 del extractor solo con **los mismos pesos**: `0,34·0,373 + 0,66·0,582 = 0,511`, de donde `0,726 − 0,511 = +21,5 pp`. Reproducible desde `outputs/evaluation_f1/extractor_only_yield.csv` (F1 extractor por estrato) y `primary_metrics.csv` (pesos y F1 del sistema).
+  - **Homogéneo (like-for-like) ≈ +18,1 pp:** medido sobre los **mismos 377 ítems** con veredicto del juez. Con el estimador del script (media ponderada de los F1 por estrato, pesos **0,34 / 0,66**): extractor `0,545` vs sistema `0,726`, esto es **+18,1 pp**. Comprobación ponderando primero las celdas de las matrices: `0,547` vs `0,724`, esto es **+17,7 pp** (la conclusión sustantiva no cambia). Reproducible desde `outputs/evaluation_f1/confusion_matrix_3x3.csv` (marginales humanos por estrato sobre los 377) y `primary_metrics.csv` (pesos y F1 del sistema).
 
 Sobre la sub-muestra estratificada exclusivamente (más cercana al espíritu de "muestra de validación"): F1 = 0.74.
 
@@ -267,7 +267,7 @@ Cruzando el código de error E1-E5 con el veredicto v2:
 | Métrica exigida | Resultado |
 |---|---|
 | Cobertura temporal | **2021-2026** (parcial 2026), supera el período mínimo |
-| Tendencias significativas | **6 Mann-Kendall confirmatorias (p<0,05, sin corrección por multiplicidad) + 5 exploratorias (p<0,10) + 13 técnicas emergentes robustas (ratio ≥ 1,5×, normalizadas por volumen) + cambios estructurales** |
+| Tendencias significativas | **6 Mann-Kendall nominalmente significativas (p<0,05, sin corrección por multiplicidad) + 5 exploratorias (p<0,10) + 13 técnicas emergentes (ratio ≥ 1,5×, normalizadas por volumen) + cambios estructurales** |
 | Visualizaciones reproducibles | **10 figuras PNG en outputs/longitudinal/figures/** |
 | Datos exportables | **10 CSVs en outputs/longitudinal/** |
 
@@ -289,9 +289,9 @@ Cruzando el código de error E1-E5 con el veredicto v2:
 
 Seis técnicas son significativas a p < 0.05 estricto (T1486 y T1562 a p=0.017; T1070.001, T1136, T1562.001 y T1021.002 a p=0.033). Cinco técnicas adicionales son significativas a p < 0.10, relevante dado que Mann-Kendall sobre series de N = 5 años tiene potencia estadística limitada (limitación documentada en la memoria). El criterio aceptado en la literatura aplicada (Hipel & McLeod 2005, *Time Series Modelling of Water Resources*) admite p < 0.10 cuando la longitud de la serie es ≤ 7 puntos.
 
-**Caveat de multiplicidad (alineado con cap.5):** estos contrastes se aplican sobre 113 técnicas **sin corrección por comparaciones múltiples**; el recuento (6 a p<0,05, 11 a p<0,10) coincide con la expectativa por azar y **ninguna sobrevive a Benjamini-Hochberg (FDR) ni Bonferroni**. Por eso se presentan como **6 confirmatorias** (p<0,05) + **5 exploratorias** (p<0,10) y el Objetivo 4 se apoya sobre todo en las **13 técnicas emergentes** (descriptivas, reproducibles) y en los cambios estructurales, no solo en Mann-Kendall.
+**Caveat de multiplicidad (alineado con cap.5):** estos contrastes se aplican sobre 113 técnicas **sin corrección por comparaciones múltiples**; el recuento (6 a p<0,05, 11 a p<0,10) coincide con la expectativa por azar y **ninguna sobrevive a Benjamini-Hochberg (FDR) ni Bonferroni**. Por eso se presentan como **6 nominalmente significativas** (p<0,05) + **5 exploratorias** (p<0,10) y el Objetivo 4 se apoya sobre todo en las **13 técnicas emergentes** (descriptivas, reproducibles) y en los cambios estructurales, no solo en Mann-Kendall.
 
-### Tendencias robustas al sesgo de volumen (normalización por volumen de fuente)
+### Tendencias normalizadas por volumen de fuente
 
 13 técnicas con crecimiento ≥ 1,5× tras corregir el sesgo de volumen de bc_site (que domina el 56% del corpus 2024). Top 6 con presencia significativa (norm_late ≥ 0.20):
 

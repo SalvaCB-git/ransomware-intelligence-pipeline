@@ -13,12 +13,12 @@
 | # | Objetivo del contrato | Métrica exigida | Resultado obtenido | Estado |
 |---|---|---|---|---|
 | 1 | Recolección automatizada y continua | ≥3.000 artículos, ≥10 fuentes, cloud | **3.871 artículos**, **13 fuentes**, OCI 24/7 | Cumplido |
-| 2 | Pipeline RAG con MITRE ATT&CK | F1 ≥ 0.70, JSON ≥ 90%, ≥50 anotados | **F1 = 0.726**, **JSON 96.34%**, **484 anotados** | Cumplido |
+| 2 | Pipeline RAG con MITRE ATT&CK | F1 ≥ 0.70, JSON ≥ 90%, ≥50 anotados | **F1 = 0.726**, **JSON 96.34%**, **484 anotados** | Cumplido (escenario central) |
 | 3 | Validación con calibración humana | Krippendorff α ≥ 0.60 sobre ≥200 TTPs estratificados | **α = 0.6461 sobre N = 278** pares (de muestra estratificada de 384) | Cumplido |
 | 4 | Análisis longitudinal 2021-2025 | ≥5 tendencias significativas + datos exportables | **6 Mann-Kendall nominalmente significativas (p<0,05) + 5 exploratorias (p<0,10) + 13 emergentes (normalizadas)**, 10 figuras + 10 CSVs | Cumplido |
 | 5 | Evaluación calidad pipeline | TP rate sobre ≥200 anotados | **Precision = 0.783, Recall = 0.677** sobre N = 377 | Cumplido |
 
-Los cinco objetivos del contrato se cumplen con holgura. Toda métrica reportada es reproducible mediante los scripts del repositorio y los CSVs en `outputs/`. Las cifras citadas son consistentes con las almacenadas en `data/ransomware_intel.db` (SQLite) en el momento del informe.
+Los cinco objetivos se cumplen según sus estimadores principales; O2 es sensible al escenario adversario de datos faltantes. Toda métrica reportada es reproducible mediante los scripts del repositorio y los CSVs en `outputs/`. Las cifras citadas son consistentes con las almacenadas en `data/ransomware_intel.db` (SQLite) en el momento del informe.
 
 ---
 
@@ -496,4 +496,4 @@ Todos los scripts usan seeds fijos (`seed=42` donde aplica). Los CSVs y figuras 
 
 ## Conclusión
 
-Los cinco objetivos del contrato firmado el 5 de abril de 2026 se cumplen con holgura cuantificable a fecha de 6 de mayo de 2026. Los umbrales contractuales se superan no solo en el estimador puntual sino habitualmente también en el límite inferior del intervalo de confianza al 95%. Toda métrica reportada es reproducible desde el repositorio público mediante los scripts adjuntos, sin pasos manuales adicionales.
+Los cinco objetivos del contrato firmado el 5 de abril de 2026 se cumplen según sus estimadores principales a fecha de 6 de mayo de 2026. Los umbrales se superan en el estimador puntual; el análisis de sensibilidad y los intervalos de confianza al 95% muestran que ese margen no siempre es holgado, en particular para el F1 de O2. Toda métrica reportada es reproducible desde el repositorio público mediante los scripts adjuntos, sin pasos manuales adicionales.

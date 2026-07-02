@@ -26,12 +26,12 @@
   <article class="rounded-xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-4">
     <div class="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80 font-semibold mb-1">Hallazgo · monotónica perfecta</div>
     <div class="font-mono text-cyan-100 text-lg">T1486 - Data Encrypted</div>
-    <div class="mt-1 text-xs text-slate-400">Mann-Kendall <span class="font-mono text-cyan-300">τ=1.0, p=0.017</span>. Única técnica con monotonicidad perfecta 2021-2025.</div>
+    <div class="mt-1 text-xs text-slate-400">Mann-Kendall <span class="font-mono text-cyan-300">τ=1.0, p=0.017</span>. Única técnica de alta prevalencia con monotonicidad perfecta 2021-2025 (T1562 también τ=1.0, con conteos menores).</div>
   </article>
   <article class="rounded-xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 to-transparent p-4">
-    <div class="text-[10px] uppercase tracking-[0.18em] text-emerald-300/80 font-semibold mb-1">Hallazgo · early warning</div>
-    <div class="font-mono text-emerald-100 text-lg">T1204.004 ClickFix</div>
-    <div class="mt-1 text-xs text-slate-400">Detectada en corpus 2024 → catalogada por MITRE ATT&CK en marzo 2025. Lead time <span class="text-emerald-300 font-mono">~12 meses</span>.</div>
+    <div class="text-[10px] uppercase tracking-[0.18em] text-emerald-300/80 font-semibold mb-1">Hallazgo · latencia de catalogación</div>
+    <div class="font-mono text-emerald-100 text-lg">T1204.005 Malicious Library</div>
+    <div class="mt-1 text-xs text-slate-400">En el corpus desde enero 2025 → catalogada por MITRE ATT&CK en octubre 2025 (v18). Lag <span class="text-emerald-300 font-mono">~10 meses</span> (299 días), mediana positiva, 2 fuentes.</div>
   </article>
   <article class="rounded-xl border border-violet-400/20 bg-gradient-to-br from-violet-500/10 to-transparent p-4">
     <div class="text-[10px] uppercase tracking-[0.18em] text-violet-300/80 font-semibold mb-1">Hallazgo · técnica emergente</div>
@@ -98,7 +98,7 @@
     <div>
       <h2 class="text-lg font-semibold text-white">Tendencias Mann-Kendall</h2>
       <p class="text-sm text-slate-400 mt-1">
-        Tau de Kendall sobre la serie 2021-2025 con sparkline. <span class="text-cyan-300 font-mono">significant=True</span> tras p &lt; 0.05.
+        Tau de Kendall sobre la serie 2021-2025 con sparkline. <span class="text-cyan-300 font-mono">significant=True</span> tras p &lt; 0.10 (6 de ellas con p &lt; 0.05).
       </p>
     </div>
     <span class="text-[11px] font-mono text-slate-500">mann_kendall_prevalence_matrix.csv</span>

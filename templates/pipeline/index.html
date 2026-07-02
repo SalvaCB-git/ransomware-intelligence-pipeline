@@ -584,7 +584,7 @@
              <td class="py-1 pr-3 font-mono text-cyan-300">${escapeHtml(c.technique_id)}</td>
              <td class="py-1 pr-3 text-slate-300">${escapeHtml(c.name || '')}</td>
              <td class="py-1 pr-3 font-mono text-slate-400">${(c.similarity ?? 0).toFixed(3)}</td>
-             <td class="py-1 text-xs ${c.source === 'tool_lookup' ? 'text-emerald-300' : 'text-slate-400'}">${escapeHtml(c.source || '')}</td>
+             <td class="py-1 text-xs ${(c.source || '').startsWith('tool_lookup') ? 'text-emerald-300' : 'text-slate-400'}">${escapeHtml(c.source || '')}</td>
            </tr>`).join('');
         setStageBody('rag_extract', `
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -664,7 +664,7 @@
           ${renderPrompt('Reasoning / scratchpad', p.reasoning)}
           ${renderPrompt('Raw response (Ollama)', p.raw_response)}`;
       } else if (stage === 'judge_v2') {
-        setStageState('judge_v2', 'ok', `${p.accept_count ?? 0}/${(p.accept_count || 0) + (p.reject_count || 0)} accept`);
+        setStageState('judge_v2', 'ok', `${p.accept_count ?? 0}/${(p.verdicts || []).length || ((p.accept_count || 0) + (p.reject_count || 0))} accept`);
         const rows = (p.verdicts || []).map(v => `
           <tr class="border-b border-ink-700/40 last:border-0 align-top">
             <td class="py-1.5 pr-3 font-mono text-cyan-300">${escapeHtml(v.technique_id || '')}</td>

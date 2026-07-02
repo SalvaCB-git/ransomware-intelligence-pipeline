@@ -301,7 +301,7 @@ def analysis_volume(corpus: list[dict], csv_dir: str | None):
     print("\nPor trimestre (TTPs):")
     print("  " + "  ".join(f"{q[-2:]}" for q in quarters))
     qyr: dict[str, dict[str, int]] = defaultdict(dict)
-    for r in corpus:
+    for r in tc:
         yr = r["year"]
         q = r["quarter"][-2:]  # Q1/Q2/Q3/Q4
         qyr[yr][q] = qyr[yr].get(q, 0) + 1

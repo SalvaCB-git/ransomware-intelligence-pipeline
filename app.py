@@ -95,17 +95,16 @@ _JUDGE_RETRIES = 3
 _MITRE_CACHE_PATH = _Path("/app/data/mitre_attack_cache.json")
 
 # --- Basic Auth ---
-# Defensa en profundidad. NPM ya hace Basic Auth por delante, pero si NPM cae
-# o se publica el puerto 7000, los endpoints de mutación quedan al descubierto.
-# Compatibilidad: si BASIC_AUTH_USER/PASS no están en .env, se imprime un aviso
-# al importar y los decoradores no hacen nada (modo despliegue progresivo).
+# Los endpoints de mutación deben permanecer cerrados incluso si el despliegue
+# olvida configurar una o ambas credenciales. Las páginas públicas de solo
+# lectura siguen disponibles para la demo.
 _BASIC_AUTH_USER = os.environ.get("BASIC_AUTH_USER", "").strip()
 _BASIC_AUTH_PASS = os.environ.get("BASIC_AUTH_PASS", "").strip()
 _BASIC_AUTH_ENABLED = bool(_BASIC_AUTH_USER and _BASIC_AUTH_PASS)
 
 if not _BASIC_AUTH_ENABLED:
-    print("[auth] AVISO: Basic Auth DESACTIVADO. BASIC_AUTH_USER/PASS no "
-          "definidos en .env. Los endpoints de mutación quedan abiertos.", flush=True)
+    print("[auth] ERROR: BASIC_AUTH_USER/PASS no definidos en .env. "
+          "Los endpoints protegidos responderán 503.", flush=True)
 
 def _check_basic_auth_header(header_value: str) -> bool:
     if not header_value or not header_value.startswith("Basic "):
@@ -118,11 +117,10 @@ def _check_basic_auth_header(header_value: str) -> bool:
     return (hmac.compare_digest(user, _BASIC_AUTH_USER)
             and hmac.compare_digest(pwd, _BASIC_AUTH_PASS))
 
-def _basic_auth_or_401():
-    """Devuelve None si la petición está autenticada (o si la auth está
-    desactivada). Si no, devuelve una respuesta 401."""
+def _basic_auth_or_error():
+    """Autoriza credenciales válidas y falla cerrado si falta configuración."""
     if not _BASIC_AUTH_ENABLED:
-        return None
+        return ("Authentication is not configured", 503)
     if _check_basic_auth_header(request.headers.get("Authorization", "")):
         return None
     return ("Unauthorized", 401,
@@ -131,7 +129,7 @@ def _basic_auth_or_401():
 def require_basic_auth(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        deny = _basic_auth_or_401()
+        deny = _basic_auth_or_error()
         if deny is not None:
             return deny
         return fn(*args, **kwargs)

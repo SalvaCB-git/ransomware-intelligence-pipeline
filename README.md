@@ -1,362 +1,254 @@
 # Ransomware Intelligence Pipeline
 
-**Autor:** Salvador Cascón Bertomeu · **TFG 2026** · **Tutor:** Alejandro José Freire Mendoza
+[![CI](https://github.com/SalvaCB-git/ransomware-intelligence-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/SalvaCB-git/ransomware-intelligence-pipeline/actions/workflows/ci.yml)
+[![Live demo](https://img.shields.io/badge/live_demo-read--only-0f766e)](https://scraper.143.47.55.55.sslip.io/demo)
 
-Pipeline end-to-end de recolección automatizada y análisis semántico de threat
-intelligence sobre ransomware. Combina scraping continuo de 13 fuentes públicas,
-extracción de TTPs (MITRE ATT&CK) con LLM local (Qwen 2.5 14B + RAG), validación
-con segundo LLM externo (Gemma 4 26B vía API) y análisis longitudinal del corpus
-2021-2026. Construido para responder los 5 objetivos del contrato del TFG.
+An end-to-end cyber threat intelligence pipeline that collects public ransomware
+reporting, extracts MITRE ATT&CK techniques with a local LLM and retrieval, and
+validates the resulting intelligence with an independent model and human
+calibration.
 
-> **Este README es la guía del repositorio.** La narrativa académica completa
-> (motivación, diseño, calibración, evaluación, hallazgos) está en la **memoria
-> del TFG**, que acompaña a esta entrega; aquí está lo necesario para entender
-> la estructura, arrancar el sistema y **reproducir las cifras**.
->
-> **Demo desplegada (pública, solo lectura):**
-> <https://scraper.143.47.55.55.sslip.io/demo>
+Built by **Salvador Cascón Bertomeu** as a 2026 Computer Engineering capstone.
+The system combines data engineering, applied AI, statistical evaluation,
+backend development and security-conscious deployment.
 
----
+**[Open the read-only demo](https://scraper.143.47.55.55.sslip.io/demo)** ·
+**[Reproduce the results](#reproduce-the-headline-results)** ·
+**[Read the original Spanish documentation](README.es.md)**
 
-## Arquitectura
+## Why this project
 
-```
-                   ┌───────────────────────────────────────────┐
-                   │  Servidor OCI (ARM Always Free, 24/7)    │
-                   │                                          │
- Spiders Scrapy ─► │  CSV ── preprocess.py ──► SQLite (WAL)   │
- 13 fuentes        │       (SimHash dedup, ~3.871 art.)       │
-                   │                ▲                         │
-                   │                │                         │
-                   │       [REST API endpoints]               │
-                   │  ┌─────────────────────────────────────┐│
-                   │  │ /api/ttps/acquire_batch  (lock 3h)  ││
-                   │  │ /api/ttps/commit_batch   (atómico)  ││
-                   │  │ /api/judge/acquire_batch            ││
-                   │  │ /api/judge/commit_batch (idempotent)││
-                   │  │ /api/demo/heartbeat   (PC bridge)   ││
-                   │  └─────────────────────────────────────┘│
-                   │                ▲                         │
-                   │       HTTP Basic Auth (Flask)            │
-                   └────────────────┼─────────────────────────┘
-                                    │ HTTPS (NPM + Let's Encrypt)
-        ┌───────────────────────────┼───────────────────────────┐
-        │ PC local (Linux, NVIDIA GPU 12 GB+ VRAM, Ollama)     │
-        │                                                       │
-        │  pc/run_extraction.py                                 │
-        │   1. acquire_batch → 50 articles                      │
-        │   2. prefilter.py (heurísticas + cosine ≥ 0,55)       │
-        │   3. RAG: ChromaDB MITRE + tool_lookup → Qwen 14B     │
-        │   4. commit_batch                                     │
-        │                                                       │
-        │  pc/demo_worker.py - heartbeat + jobs en vivo         │
-        │  pc/run_judge.py   - judge v1 (Qwen)                  │
-        │                                                       │
-        │  Judge v2 (Gemma 4 26B vía Google AI Studio API)      │
-        │  reside en el SERVIDOR (judge_core.py + judge_v2.py)  │
-        └───────────────────────────────────────────────────────┘
+Mapping unstructured threat reporting to ATT&CK is useful for analysis, but LLM
+output cannot be treated as ground truth. This project therefore treats
+extraction and validation as separate stages and records the evidence needed to
+measure their agreement, failure modes and practical limits.
+
+The deployed pipeline:
+
+- collects and normalizes reporting from 13 public sources;
+- deduplicates 3,871 articles with SimHash and persists them in SQLite/WAL;
+- prefilters articles with deterministic rules and semantic retrieval;
+- uses Qwen 2.5 14B locally with RAG over 691 ATT&CK entries;
+- validates candidate techniques with an independent Gemma model;
+- exposes a Flask API and a public read-only analysis interface;
+- reproduces its headline metrics from a versioned, privacy-conscious snapshot.
+
+## System overview
+
+```mermaid
+flowchart LR
+    sources[13 public sources] --> spiders[Scrapy collectors]
+    spiders --> normalize[Normalize and SimHash deduplicate]
+    normalize --> db[(SQLite / WAL)]
+
+    db --> acquire[Atomic batch API]
+    acquire --> prefilter[Rules and semantic prefilter]
+    prefilter --> rag[ATT&CK retrieval]
+    rag --> qwen[Local Qwen 2.5 14B extractor]
+    qwen --> commit[Idempotent commit]
+    commit --> db
+
+    db --> judge[Independent Gemma judge]
+    judge --> db
+    db --> analysis[Evaluation and longitudinal analysis]
+    db --> demo[Read-only Flask demo]
 ```
 
----
+The always-on server runs on an OCI ARM instance. GPU-intensive extraction runs
+on a local Linux workstation through authenticated, idempotent batch endpoints.
+This split keeps the public service available without requiring a permanently
+running GPU.
 
-## Resultados estrella
+## Headline results
 
-- **F1 = 0,726** · MCC = 0,577 (pipeline completo, Post-hoc Candidate Validation, N=377)
-- **Krippendorff α = 0,6461** [0,5439–0,7490] sobre **N=278** (muestra de diseño estratificada de 384; 106 quedaron sin veredicto v2); supera el umbral 0,60 del Objetivo 3
-- **Coincidencia humano ↔ Gemma 4** sobre conf=1.0: humano 41,0 % (N=100) vs Gemma 41,27 % (N=4.437); ambas vías sitúan ~59 % de falsos positivos (apoya H-2). Nota: muestras anidadas (99/100), no independientes; el TOST no prueba equivalencia a ±5 pp
-- **Corrección de errores E1** (abstracción vaga): juez v2 corrige el **96,9 %** de los E1 del juez v1
+| Measure | Result | Evaluation set | What it establishes |
+| --- | ---: | ---: | --- |
+| End-to-end F1 | **0.726** | N=377 | Central post-hoc estimate for the complete validation pipeline. |
+| Matthews correlation coefficient | **0.577** | N=377 | Performance accounting for class imbalance. |
+| Krippendorff's alpha | **0.6461** | N=278 | Moderate human/model agreement; 95% interval `[0.5439, 0.7490]`. |
+| Structured JSON adherence | **96.34%** | Full evaluated output | Reliability of the extractor's machine-readable format. |
+| Vague-abstraction error correction | **96.9%** | E1 errors from judge v1 | Share corrected by the independent v2 judge. |
 
-Detalle por objetivo + evidencia documental en
-[DEFENSA_OBJETIVOS_CONTRATO.md](DEFENSA_OBJETIVOS_CONTRATO.md).
+Human calibration accepted 41.0% of confidence-1.0 candidates (`N=100`), while
+the Gemma judge accepted 41.27% (`N=4,437`). These samples are nested rather
+than independent; the result does **not** establish equivalence within ±5
+percentage points. Different evaluation stages also use different sample sizes,
+so their metrics should not be compared as if they came from one common test
+set.
 
----
+See [DEFENSA_OBJETIVOS_CONTRATO.md](DEFENSA_OBJETIVOS_CONTRATO.md) for the
+metric-to-artifact traceability used in the academic evaluation.
 
-## Datos incluidos en el repositorio
+## Reliability and reproducibility
 
-`data/ransomware_intel.db` es un **snapshot reproducible** de la BD canónica
-**sin el campo `articles.body`** (el texto íntegro de artículos de terceros no
-se redistribuye, por copyright). Conserva íntegros los metadatos de los 3.871
-artículos y todas las tablas derivadas (extractions, veredictos v1/v2, ground
-truth humano). **Todas las cifras de la tabla de reproducción se reproducen con
-este snapshot** (verificado: ningún script de análisis lee `body`). Detalle,
-caveats y cómo regenerar el corpus completo: [data/README.md](data/README.md).
+The repository includes `data/ransomware_intel.db`, a canonical snapshot with
+article bodies removed. It retains the metadata and derived tables required to
+reproduce the published figures without redistributing third-party full text.
 
-> El snapshot versionado es la forma de distribución de los datos de esta
-> entrega. El corpus full-text completo se conserva fuera del repositorio.
+The implementation uses:
 
----
+- atomic acquisition and commit endpoints with expiring batch locks;
+- idempotent writes for extraction and judge results;
+- deterministic unit tests for normalization, deduplication, prefiltering,
+  ATT&CK lookup and spider discovery;
+- an independent statistical validation suite against scikit-learn, SciPy,
+  statsmodels and NetworkX;
+- explicit caveats for missing data, corpus bias, catalog lag and unreliable
+  publication dates.
 
-## Cómo arrancar desde cero
+## Run the system
 
-### Servidor (OCI / Docker)
+### Server
+
+Prerequisites: Docker, Docker Compose and an external Docker network named
+`monitor_net`.
 
 ```bash
-# Desde la raíz de este repositorio (clonado o descomprimido)
+cp .env.example .env
+# Fill GOOGLE_API_KEY, BASIC_AUTH_USER and BASIC_AUTH_PASS in .env
 
-# .env (gitignored, crear a mano; plantilla en .env.example)
-cat > .env <<EOF
-GOOGLE_API_KEY=<tu_key_AI_Studio>
-BASIC_AUTH_USER=<usuario_para_endpoints_mutacion>
-BASIC_AUTH_PASS=<contraseña>
-EOF
-
-docker network create monitor_net   # la red es external en docker-compose.yml
+docker network create monitor_net
 docker compose up -d
-docker logs -f scraper              # verificar arranque
+docker logs -f scraper
 ```
 
-Flask queda en `127.0.0.1:7000` dentro del host (no expuesto al exterior).
-En el despliegue original, NGINX Proxy Manager hace TLS + reverse proxy desde
-`https://scraper.143.47.55.55.sslip.io`.
+Flask binds to `127.0.0.1:7000` on the host. The reference deployment places
+NGINX Proxy Manager in front of it for TLS termination and reverse proxying.
 
-### PC (extracción + judge local con GPU)
+### Local extraction client
 
-Prerequisitos: Python 3.10+, Ollama corriendo en `localhost:11434`,
-modelo `qwen2.5:14b-instruct-q4_K_M` descargado (`ollama pull qwen2.5:14b-instruct-q4_K_M`),
-GPU NVIDIA con 12 GB+ de VRAM (probado: RTX 4070 Ti).
+Prerequisites: Python 3.10+, Ollama, the
+`qwen2.5:14b-instruct-q4_K_M` model and an NVIDIA GPU with at least 12 GB VRAM.
 
 ```bash
 cd pc
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
 
-python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt          # ver pc/README.md
-
-# pc/.env (gitignored, crear a mano; plantilla en pc/.env.example)
-cat > .env <<EOF
-SCRAPER_URL=https://scraper.143.47.55.55.sslip.io
-BASIC_AUTH_USER=<mismo_que_servidor>
-BASIC_AUTH_PASS=<mismo_que_servidor>
-GOOGLE_API_KEY=<opcional, solo para benchmark v2>
-EOF
-
-python3 build_index.py                   # una sola vez, ~5 min; bundle STIX MITRE → ChromaDB
-python3 run_extraction.py --batch-size 50   # producción: lote, prefilter, RAG, commit
+python3 build_index.py
+python3 run_extraction.py --batch-size 50
 ```
 
-Detalle del pipeline PC + descripción script-a-script en
+The complete client configuration and operating notes are in
 [pc/README.md](pc/README.md).
 
-### Análisis (numpy / scipy / krippendorff / matplotlib)
+## Reproduce the headline results
 
-Los 7 scripts de análisis (`evaluation_f1.py`, `krippendorff_segmented.py`, …)
-viven en la raíz del repo y se ejecutan desde un venv local **separado** del
-contenedor (las deps científicas no se instalan en Python 3.14 ARM64: wheels no
-disponibles).
+Create a separate analysis environment:
 
 ```bash
-python3 -m venv .venv-analysis && source .venv-analysis/bin/activate
+python3 -m venv .venv-analysis
+source .venv-analysis/bin/activate
 pip install -r requirements-analysis.txt
-python3 evaluation_f1.py                  # genera outputs/evaluation_f1/
 ```
 
----
+| Result | Command | Generated artifact |
+| --- | --- | --- |
+| F1, MCC and classification metrics | `python evaluation_f1.py` | `outputs/evaluation_f1/primary_metrics.csv` |
+| Krippendorff's alpha | `python krippendorff_segmented.py` | `outputs/krippendorff_segmented/headline.csv` |
+| 2021–2025 longitudinal analysis | `python longitudinal_analysis.py --csv-dir outputs/longitudinal` | `outputs/longitudinal/` |
+| Co-occurrence and centrality | `python cooccurrence_analysis.py` | `outputs/cooccurrence/` |
+| JSON adherence | `python json_adherence.py` | `outputs/json_adherence/` |
+| ATT&CK catalog lag | `python mitre_catalog_lag.py` | `outputs/catalog_lag/catalog_lag_strict.csv` |
 
-## Cómo reproducir los resultados estrella
-
-Todos los scripts leen por defecto `data/ransomware_intel.db` (el snapshot
-incluido) y escriben sus CSVs en `outputs/` (se crea al ejecutar).
-
-| Cifra                                | Script                       | Output                                                            |
-|--------------------------------------|------------------------------|--------------------------------------------------------------------|
-| F1 = 0,726 · MCC = 0,577             | `evaluation_f1.py`           | `outputs/evaluation_f1/primary_metrics.csv` + 9 CSVs adicionales   |
-| α = 0,6461 estratificada (Objetivo 3) | `krippendorff_segmented.py`  | `outputs/krippendorff_segmented/{headline,argumentacion}.{csv,md}` |
-| Longitudinal 2021-2025 (11 MK + SNIP) | `longitudinal_analysis.py`   | `outputs/longitudinal/` (10 CSVs)                                  |
-| Co-occurrence + ARM + centralidad    | `cooccurrence_analysis.py`   | `outputs/cooccurrence/` (5 CSVs, BH-sig: T1490→T1486, T1047→T1486) |
-| JSON adherence = 96,34 %             | `json_adherence.py`          | `outputs/json_adherence/`                                          |
-| Catalog-lag (4 técnicas estrictas)   | `mitre_catalog_lag.py`       | `outputs/catalog_lag/catalog_lag_strict.csv` (+ caveat D1)         |
-| Convergencia 41,0 / 41,3 (humano vs Gemma) | (consulta directa a BD)  | `calibration_sample` (control N=100) + `ttp_verdicts_v2` (N=4.437) |
-
-Notas de ejecución:
-
-- Cada script corre **sin argumentos** salvo `longitudinal_analysis.py`, que
-  necesita el destino explícito: `python3 longitudinal_analysis.py --csv-dir
-  outputs/longitudinal`. Las figuras se generan después con
-  `longitudinal_figures.py` (lee esos CSVs).
-- `evaluation_f1.py`, `krippendorff_segmented.py` y `longitudinal_figures.py`
-  necesitan el venv `.venv-analysis` (numpy/scipy/krippendorff/matplotlib);
-  `longitudinal_analysis.py`, `cooccurrence_analysis.py`, `json_adherence.py` y
-  `mitre_catalog_lag.py` son stdlib puro (basta `python3` ≥ 3.8).
-- `mitre_catalog_lag.py` descarga en runtime los bundles STIX históricos de
-  MITRE (requiere red la primera vez; quedan cacheados en `outputs/`).
-
----
+`mitre_catalog_lag.py` downloads historical ATT&CK STIX bundles on its first
+run. Other headline analyses use the included snapshot.
 
 ## Tests
 
-Núcleo determinista (sin red/BD/GPU), en el host:
+The core suite is deterministic and does not require network access, a database
+service or a GPU:
 
 ```bash
-python3 -m venv .venv-dev && .venv-dev/bin/pip install -r requirements-dev.txt
-.venv-dev/bin/pytest tests/ -q          # 22 passed, 1 skipped
+python3 -m venv .venv-dev
+.venv-dev/bin/pip install -r requirements-dev.txt
+.venv-dev/bin/pytest tests/ --ignore=tests/test_analysis_vs_reference.py -q
+# 22 passed
 ```
 
-El `skipped` es la **suite de validación estadística**
-(`tests/test_analysis_vs_reference.py`): valida las implementaciones propias
-(F1, MCC, precision/recall/balanced-accuracy/kappa, Fisher, Benjamini-Hochberg,
-Mann-Kendall, TOST, bootstrap BCa) contra scikit-learn/scipy/statsmodels/networkx.
-Requiere la pila científica, en un venv aparte:
+The statistical implementations have a separate reference-validation suite:
 
 ```bash
 python3 -m venv .venv-validation
 .venv-validation/bin/pip install pytest -r requirements-validation.txt
-.venv-validation/bin/pytest tests/test_analysis_vs_reference.py -q   # 13 passed
+.venv-validation/bin/pytest tests/test_analysis_vs_reference.py -q
+# 13 passed
 ```
 
-> `pytest tests/` (núcleo) **no** valida las cifras del TFG; esa validación es la
-> de 13 tests de arriba. Un `skipped` del núcleo no es un fallo. Detalle en
-> [tests/README.md](tests/README.md).
+CI executes both suites independently. See [tests/README.md](tests/README.md)
+for scope and known exclusions.
 
----
+## Security and privacy
 
-## Seguridad
+- Public pages and their read-only JSON endpoints are intentionally accessible
+  without credentials.
+- Mutation and client/server pipeline endpoints require HTTP Basic
+  authentication using secrets injected through environment variables.
+- Credential comparison uses `hmac.compare_digest`.
+- Flask is bound to loopback behind the TLS reverse proxy.
+- Article bodies are excluded from the distributed database snapshot.
+- Secrets, local environments and generated outputs are excluded from version
+  control.
 
-La superficie pública es `https://scraper.143.47.55.55.sslip.io`, servida por
-NGINX Proxy Manager (NPM) con certificado Let's Encrypt. El binding interno del
-contenedor Flask está sellado a `127.0.0.1:7000` en `docker-compose.yml`; no
-hay forma de alcanzarlo sin pasar por NPM.
+The current deployment uses one authentication layer at the Flask boundary.
+Distinct reverse-proxy and application credentials remain planned defense in
+depth. Please read [SECURITY.md](SECURITY.md) before testing the live service.
 
-**Autenticación.** Las páginas de demo (`/`, `/demo`, `/pipeline`, `/corpus`,
-`/longitudinal`, `/arm`, `/judge`, `/calibration-stats`, `/catalog-lag`,
-`/calibration`) y las APIs JSON de solo lectura que consumen son **públicas
-por diseño**: el tribunal y revisores externos las cargan sin credenciales.
+## Responsible collection and data limits
 
-Los endpoints de **mutación** y los del **pipeline cliente-servidor** están
-protegidos por HTTP Basic Auth implementado en Flask (variables
-`BASIC_AUTH_USER` y `BASIC_AUTH_PASS` en `.env`, validadas con
-`hmac.compare_digest`). Los 13 endpoints protegidos:
+The crawler targets public threat-research material and honors `robots.txt` by
+default. The complete source-specific policy, exceptions and legal rationale are
+documented in [the Spanish technical guide](README.es.md). No access controls or
+paywalls are bypassed, and third-party article bodies are not redistributed in
+the repository.
 
-- POST `/run`, `/stop`, `/upload_spider`, `/trigger/preprocess`
-- POST `/api/ttps/commit_batch`, GET `/api/ttps/acquire_batch`
-- POST `/api/judge/commit_batch`, GET `/api/judge/acquire_batch`
-- POST `/api/calibration/verdict`, `/api/calibration/reconcile`
-- POST `/api/demo/heartbeat`, `/api/demo/job/event`
-- POST `/api/demo/jobs` (GET de la misma ruta sigue público: listado de jobs para el dashboard)
+Known data limitations include:
 
-NPM se configura como reverse proxy en modo **Publicly Accessible** (TLS +
-forwarding, sin Access List propia). Las credenciales viven en una sola capa
-(Flask) para evitar la incompatibilidad de doble Basic Auth en cascada con la
-misma credencial: dos cerrojos con la misma llave no son dos cerrojos, y
-mantener dos credenciales distintas requería propagar dos juegos de secretos a
-los clientes del PC. La decisión es deliberada: simplicidad operativa y una
-única fuente de verdad para la autenticación de la API.
+- true recall cannot be estimated from the candidate-only validation sample;
+- human calibration used one primary annotator;
+- source and temporal coverage are uneven;
+- CrowdStrike publication dates are unreliable and excluded from temporal
+  analyses;
+- retrospective ATT&CK mapping may be affected by catalog timing;
+- SQLite is appropriate for this deployment size, not unlimited growth;
+- API error contracts and defense in depth require further hardening.
 
-**Trabajo futuro post-defensa:** defensa en profundidad real con credenciales
-distintas en cada capa (NPM Access List con credencial A, Flask Basic Auth
-con credencial B, propagación coordinada a los clientes).
+## Repository map
 
----
-
-## Ética del scraping y limitaciones de los datos
-
-**robots.txt.** El crawler respeta `robots.txt` por defecto (`ROBOTSTXT_OBEY=True`
-global). Cinco blogs anti-bot (CrowdStrike, Cisco Talos, Trend Micro, Sophos,
-Kaspersky) se crawlean con `ROBOTSTXT_OBEY=False`: su `robots.txt` bloquea el
-listado/sitemap aunque el contenido es público y los ToS permiten su lectura;
-**no se eluden controles de acceso** (autenticación, paywalls). No se republica el
-texto íntegro de terceros: el uso es minería de textos (Directiva (UE) 2019/790,
-RDL 24/2021), y este repositorio distribuye el corpus **sin** el texto de los
-artículos ([data/README.md](data/README.md)). Detalle en la memoria (§ética del
-scraping).
-
-**`published_utc` de CrowdStrike.** Los 507 artículos de CrowdStrike (~13 % del
-corpus) tienen `published_utc` no fiable: colapsan a 2 fechas de crawl (el parser
-de fecha falló y se almacenó la del crawl). Por eso CrowdStrike se **excluye de
-todo análisis temporal** (`TEMPORAL_EXCLUDED` en `longitudinal_analysis.py` y
-`mitre_catalog_lag.py`). No afecta a F1/α/JSON ni a las cifras no temporales.
-
-**Atribución MITRE ATT&CK®.** Las técnicas y definiciones de
-`data/mitre_attack_cache.json` y `pc/mitre_techniques.json` proceden de MITRE
-ATT&CK®, *reproduced with permission of The MITRE Corporation*
-(© The MITRE Corporation). MITRE ATT&CK® es una marca registrada de The MITRE
-Corporation.
-
----
-
-## Estructura del repositorio
-
-```
-ransomware-intelligence-pipeline/
-├── README.md                         # esta guía
-├── app.py                            # Flask (2.4k líneas): UI + API + auth
-├── judge_core.py                     # SYSTEM_PROMPT + call_gemini (compartido)
-├── judge_v2.py                       # CLI offline: validate / rejudge / rejudge_conf1
-├── judge_bench.py                    # bench de determinismo del juez (temperature=0)
-├── Dockerfile · docker-compose.yml   # build + binding 127.0.0.1:7000
-├── .env.example                      # plantilla de configuración del servidor
-├── requirements-analysis.txt         # deps de los scripts de análisis (.venv-analysis)
-├── requirements-dev.txt              # deps de la suite de tests (.venv-dev)
-├── requirements-validation.txt       # deps de la validación estadística (.venv-validation)
-├── data/
-│   ├── ransomware_intel.db           # snapshot SIN articles.body (ver data/README.md)
-│   ├── mitre_attack_cache.json       # catálogo MITRE congelado (juez v2)
-│   └── README.md                     # qué es el snapshot, caveats, atribución
-├── scrapy_project/
-│   ├── README.md                     # spiders, esquemas CSV, ejecución
-│   ├── preprocess.py                 # CSV → SQLite + SimHash dedup
-│   ├── requirements.txt              # deps del contenedor (scrapy, flask, …)
-│   ├── migrate_*.py · migrations/    # migraciones de esquema (idempotentes)
-│   └── bcddg/bcddg/spiders/          # 14 spiders activos + 2 bloqueados
-├── pc/                               # cliente local (extracción + judge v1 + demo worker)
-│   ├── README.md · .env.example
-│   ├── build_index.py · prefilter.py · rag_extractor.py
-│   ├── run_extraction.py · run_judge.py · demo_worker.py
-│   └── benchmark.py · run_benchmark_v2.py · evaluate_benchmark.py · …
-├── templates/ · static/              # Jinja2 + Tailwind/HTMX/Chart.js/D3 (CDN)
-├── tests/                            # pytest: núcleo determinista + validación estadística
-├── evaluation_f1.py · krippendorff_segmented.py · longitudinal_analysis.py
-├── cooccurrence_analysis.py · longitudinal_figures.py · json_adherence.py
-├── mitre_catalog_lag.py
-├── benchmark_v2_results/             # crudos del benchmark v2 de extractores
-└── outputs/                          # CSVs de análisis (gitignored, se regeneran)
+```text
+.
+├── app.py                         # Flask UI, API and authentication
+├── judge_core.py                  # Shared independent-judge logic
+├── judge_v2.py                    # Offline validation CLI
+├── docker-compose.yml             # Server deployment
+├── scrapy_project/                # Collection and preprocessing
+├── pc/                            # Local GPU extraction client
+├── data/                          # Reproducible snapshot and ATT&CK cache
+├── tests/                         # Core and statistical validation tests
+├── benchmark_v2_results/          # Raw extractor benchmark artifacts
+├── evaluation_f1.py               # Primary evaluation
+├── krippendorff_segmented.py      # Agreement analysis
+├── longitudinal_analysis.py       # Temporal analysis
+└── cooccurrence_analysis.py       # Association and graph analysis
 ```
 
----
+## Further documentation
 
-## Documentación del repositorio
+- [Spanish technical guide](README.es.md)
+- [Objective and evidence traceability](DEFENSA_OBJETIVOS_CONTRATO.md)
+- [Local extraction pipeline](pc/README.md)
+- [Collectors and schemas](scrapy_project/README.md)
+- [Test design and exclusions](tests/README.md)
+- [Dataset contents and caveats](data/README.md)
+- [Extractor benchmark artifacts](benchmark_v2_results/README.md)
 
-- **[DEFENSA_OBJETIVOS_CONTRATO.md](DEFENSA_OBJETIVOS_CONTRATO.md)**: evidencia de cumplimiento de los 5 objetivos contractuales, cifra a cifra, con el script y el CSV que respaldan cada una.
-- **[pc/README.md](pc/README.md)**: pipeline PC: instalación, flujos, limitaciones conocidas.
-- **[scrapy_project/README.md](scrapy_project/README.md)**: spiders, esquemas CSV, ejecución.
-- **[tests/README.md](tests/README.md)**: qué se testea, cómo, y qué no (y por qué).
-- **[data/README.md](data/README.md)**: el snapshot de BD: qué contiene, qué reproduce, atribución.
-- **[benchmark_v2_results/README.md](benchmark_v2_results/README.md)**: crudos del benchmark de extractores.
-- La narrativa académica completa está en la **memoria del TFG** (no incluida en el repo; el tribunal dispone de ella).
+## License and attribution
 
----
+The repository currently has no formal open-source license. The code is
+publicly viewable, but reuse requires the author's permission until a license is
+selected. Data and third-party resources may have separate terms.
 
-## Dependencias de terceros y sus licencias
-
-Todas las bibliotecas y recursos externos que usa el proyecto son de código
-abierto bajo licencias permisivas, y sus versiones están fijadas en los ficheros
-`requirements-*.txt`, `scrapy_project/requirements.txt` y `pc/requirements.txt`.
-La licencia canónica de cada paquete es la que distribuye en PyPI; a modo de
-referencia:
-
-- **BSD** (3-Clause / 2-Clause): Scrapy, scrapy-playwright, parsel, lxml, Flask,
-  Jinja2, numpy, scipy, scikit-learn, PyTorch, python-dotenv, tldextract,
-  matplotlib (licencia matplotlib, estilo BSD).
-- **Apache 2.0**: Playwright, requests, cryptography, ChromaDB, transformers,
-  sentence-transformers, tokenizers, huggingface_hub, safetensors,
-  readability-lxml, python-dateutil.
-- **MIT**: APScheduler, Twisted, krippendorff.
-- **MPL 2.0**: tqdm.
-
-Recursos del frontend cargados por CDN: Tailwind CSS (MIT), HTMX (BSD-2),
-Chart.js (MIT), D3.js (ISC).
-
-**MITRE ATT&CK®**: las técnicas y definiciones (`data/mitre_attack_cache.json`,
-`pc/mitre_techniques.json`) proceden de The MITRE Corporation, *reproduced with
-permission of The MITRE Corporation*; MITRE ATT&CK® es una marca registrada de
-The MITRE Corporation.
-
----
-
-## Licencia y autoría
-
-**Salvador Cascón Bertomeu**, Trabajo Fin de Grado 2026.
-Tutor: Alejandro José Freire Mendoza.
-
-Repositorio público sin licencia formal: todos los derechos reservados por
-defecto (el código puede consultarse, pero su reutilización requiere permiso
-expreso del autor). La decisión de licencia (MIT / Apache 2.0 / académica
-restrictiva) se tomará tras la entrega.
+MITRE ATT&CK® material is reproduced with permission of The MITRE Corporation.
+MITRE ATT&CK® is a registered trademark of The MITRE Corporation.

@@ -36,6 +36,34 @@ jobs:
       - name: Run deterministic core suite
         run: python -m pytest tests/ --ignore=tests/test_analysis_vs_reference.py -q
 
+  runtime-smoke:
+    name: Runtime dependency smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: scrapy_project/requirements.txt
+
+      - name: Install runtime dependencies
+        run: python -m pip install pytest==8.3.5 -r scrapy_project/requirements.txt
+
+      - name: Import runtime packages
+        run: python -c "import cryptography, lxml, requests, scrapy, twisted"
+
+      - name: Run deterministic suite in the runtime environment
+        run: python -m pytest tests/ --ignore=tests/test_analysis_vs_reference.py -q
+
+      - name: Discover all configured spiders
+        working-directory: scrapy_project/bcddg
+        run: test "$(scrapy list | wc -l)" -eq 16
+
   statistical-validation:
     name: Statistical validation
     runs-on: ubuntu-latest

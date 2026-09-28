@@ -49,7 +49,7 @@ requests==2.34.2  # Mantiene el fix de GHSA-gc5v-m9x4-r6x2.
 twisted==26.4.0
 
 # ── SSL/TLS ──────────────────────────────────────────────────────────────────
-cryptography==48.0.1  # Mantiene el fix de GHSA-p423-j2cm-9vmq; requiere Python 3.9+.
+cryptography==50.0.1  # Mantiene el fix de GHSA-p423-j2cm-9vmq; requiere Python 3.9+.
 
 # ── Optional: Cloudflare bypass ──────────────────────────────────────────────
 # Uncomment if you hit Cloudflare-protected pages

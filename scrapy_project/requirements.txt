@@ -16,7 +16,7 @@
 
 # ── Core scraping framework ──────────────────────────────────────────────────
 # 2.16.0 mantiene el fix de GHSA-cwxj-rr6w-m6w7 y admite Twisted 26.4.0.
-scrapy==2.16.0
+scrapy==2.19.0
 
 # ── Playwright integration (JavaScript rendering for anti-bot spiders) ───────
 scrapy-playwright==0.0.46

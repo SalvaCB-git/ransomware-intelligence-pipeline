@@ -29,7 +29,7 @@ jinja2==3.1.6
 # ── HTML/XML parsing ────────────────────────────────────────────────────────
 # 6.1.1 mantiene el fix de GHSA-vfmq-68hx-4jfw. Extra [html_clean] declara
 # lxml_html_clean (Cleaner usado en 4 spiders), antes transitivo por readability-lxml.
-lxml[html_clean]==6.1.1
+lxml[html_clean]==6.1.3
 parsel==1.11.0
 
 # ── Date parsing ─────────────────────────────────────────────────────────────

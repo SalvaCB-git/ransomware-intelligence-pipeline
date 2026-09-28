@@ -61,7 +61,7 @@ cryptography==48.0.1  # Mantiene el fix de GHSA-p423-j2cm-9vmq; requiere Python 
 # pysocks>=1.7.1
 
 # ── Job scheduling (preprocess trigger post-scraping + periodic) ──────────────
-APScheduler==3.10.4
+APScheduler==3.11.3
 
 # ── Config loading (.env) ─────────────────────────────────────────────────────
 # En el contenedor las vars vienen del env_file de docker-compose; quien importa

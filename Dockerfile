@@ -1,4 +1,4 @@
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 # Dependencias del sistema (ARM64 compatible)
 RUN apt-get update && apt-get install -y \
